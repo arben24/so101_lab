@@ -1,0 +1,42 @@
+site_name: so101-lab
+site_description: Lehr-Repository für den SO-101-Roboterarm und LeKiwi
+docs_dir: docs
+use_directory_urls: false   # Links funktionieren auch beim Öffnen der Dateien ohne Server
+
+theme:
+  name: material
+  language: de
+  font: false               # keine Google Fonts: alles muss offline laufen
+  features:
+    - navigation.sections
+    - content.code.copy
+
+plugins:
+  - search:
+      lang: de
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+
+nav:
+  - Überblick: index.md
+  - Aufbau: 01-aufbau.md
+  - Einrichtung: 02-einrichtung.md
+  - Servos verstehen: 03-servos.md
+  - Bewegungen: 04-bewegungen.md
+  - Datensätze: 05-datensaetze.md
+  - Raspberry Pi: 06-raspberry-pi.md
+  - ESP32: 07-esp32.md
+  - LeKiwi: 08-lekiwi.md
+  - Architektur: 09-architektur.md
+  - Fehlersuche: 10-fehlersuche.md
+  - Übungen: uebungen.md
+  - Anhang: anhang.md
+
+extra:
+  generator: false          # kein Link zu externer Seite im Fuß

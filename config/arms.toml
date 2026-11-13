@@ -1,0 +1,47 @@
+# Geräte für so101-lab. Ein [[device]]-Block je Arm oder Roboter.
+# Wird ab Phase 2 vom Konfigurations-Lader gelesen; `so101-lab doctor` prüft schon jetzt,
+# ob die Datei gültiges TOML ist.
+#
+# type:    so101_follower | so101_leader | lekiwi
+# backend: usb | remote | esp32 | mock
+#   usb     Arm hängt per USB am eigenen Rechner (port)
+#   remote  Arm hängt an einem anderen Rechner, z. B. Raspberry Pi (address, token)
+#   esp32   Arm hängt an einem ESP32-Funkknoten (address)
+#   mock    simulierte Motoren, keine Hardware nötig
+# calibration_id: Name der Kalibrierdatei (siehe calibration/ und LeRobot --robot.id)
+
+[[device]]
+name = "follower"
+type = "so101_follower"
+backend = "usb"
+port = "/dev/ttyACM0"          # Windows: "COM3", macOS: "/dev/tty.usbmodem..."
+calibration_id = "follower_1"
+cameras = []
+
+# [[device]]
+# name = "leader"
+# type = "so101_leader"
+# backend = "usb"
+# port = "/dev/ttyACM1"
+# calibration_id = "leader_1"
+
+# [[device]]
+# name = "pi_follower"
+# type = "so101_follower"
+# backend = "remote"
+# address = "http://raspberrypi.local:8000"
+# token_env = "SO101_TOKEN"     # Name der Umgebungsvariable mit dem Token
+# calibration_id = "follower_1"
+
+# [[device]]
+# name = "esp_kiwi"
+# type = "lekiwi"
+# backend = "esp32"
+# address = "lekiwi-3fa2.local"
+
+[[device]]
+name = "demo"
+type = "so101_follower"
+backend = "mock"
+calibration_id = "mock"
+cameras = []
