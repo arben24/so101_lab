@@ -15,11 +15,11 @@ der installierten, gepinnten LeRobot-Version prüfen lässt.
 | | |
 |---|---|
 | Datum | 13.11.2026 |
-| Phase | **0 – Erkundung abgeschlossen**, wartet auf Abnahme |
-| Nächste Phase | 1 – Grundgerüst (Modell-Empfehlung: Mittel) |
-| Projektcode | noch keiner (so vorgesehen) |
+| Phase | **1 – Grundgerüst abgeschlossen**, wartet auf Abnahme |
+| Nächste Phase | 2 – Backend-Schicht (Modell-Empfehlung: **Stark**) |
+| Projektcode | CLI `so101-lab` (`doctor` fertig, `scan`/`web` Platzhalter), `config/`, `docs/`-Gerüst, Tests |
 | Im Repo | `PLAN.md`, `firmware/esp32/` (ESP32-Code, unverändert) |
-| Hardware-Tests | bisher keine. Am Entwicklungsrechner war in Phase 0 kein Servo-Adapter angeschlossen |
+| Hardware-Tests | `doctor` hat den Adapter 1a86:55d3 an `/dev/ttyACM0` erkannt (nur Lesen, kein Port geöffnet). Servos wurden noch nicht angesprochen |
 
 Die Fragen 1, 2, 5 und 6 aus Abschnitt 8 sind beantwortet (siehe Entscheidungslog). Phase 1 wartet auf das „weiter“ des Auftraggebers.
 
@@ -32,7 +32,7 @@ Protokolle, Netzwerk. **Mittel** = Umsetzung nach klarer Vorgabe. **Klein** =
 Textarbeit, Boilerplate, Styling.
 
 - [x] **0 – Erkundung** (Stark): LeRobot-Version, Bus-API, Steuertabelle, Gelenke, Kalibrierung, CLI, ESP32-Protokoll
-- [ ] **1 – Grundgerüst** (Mittel): uv-Projekt, `pyproject.toml` mit Gruppen, `config/arms.toml`, udev-Regel, CLI `so101-lab` mit `doctor`, ruff/pytest, MkDocs-Gerüst
+- [x] **1 – Grundgerüst** (Mittel): uv-Projekt, `pyproject.toml` mit Gruppen, `config/arms.toml`, udev-Regel, CLI `so101-lab` mit `doctor`, ruff/pytest, MkDocs-Gerüst
 - [ ] **2 – Backend-Schicht** (Stark): `ArmBackend`, `UsbBackend`, `MockBackend`, Konfigurations-Lader, Sicherheitsfunktionen, Tests
 - [ ] **3 – Lernskripte + Grundlagen-Doku** (Mittel, Glättung Klein): Skripte 01–07, Kapitel 00–04
 - [ ] **4 – Web-App-Kern** (Stark, Styling Klein): FastAPI, Statusseite, Not-Aus, Einzelservo, Register-Explorer, WebSocket, Token, Steuer-Sperre, Watchdog. *Nach erstem lauffähigen Teilschritt kurz anhalten.*
@@ -437,6 +437,9 @@ Pakete werden stillschweigend verworfen**, es gibt keine Fehlerantwort.
 | 13.11.2026 | Standardmäßig **CPU-torch** (1,2 GB), CUDA als optionaler Extra für Training | Auftraggeber: erst geht es um die einfache Ansteuerung. Geprüft, dass torch nicht komplett entfallen kann (siehe 3.1) |
 | 13.11.2026 | USB-Adapter: QinHeng Electronics „USB Single Serial“, **USB-ID 1a86:55d3**, erscheint als `/dev/ttyACM0` (Vorlage für die udev-Regel). Port war zuvor nicht vorhanden, taucht beim Anstecken auf | `lsusb` des Auftraggebers |
 | 13.11.2026 | Es wird nicht auf `FeetechMotorsBus` aufgebaut | in 0.7.0 als veraltet markiert |
+| 13.11.2026 | torch bleibt Pflicht (Auftraggeber). Umsetzung: `torch`/`torchvision` stehen in den uv-Gruppen `cpu` (Standard) und `cuda` (`uv sync --no-group cpu --group cuda`, Index cu132), mit `conflicts`. `uv sync` mit CPU: Umgebung 2,1 GB inkl. Doku und Dataset-Paketen | `[tool.uv.sources]` wirkt nur auf direkte Abhängigkeiten, Gruppen lösen das |
+| 13.11.2026 | Doku offline: `theme.font: false`, `use_directory_urls: false`, `extra.generator: false`; Hinweis: mkdocs zeigt eine MkDocs-2.0-Warnung (abschaltbar mit `NO_MKDOCS_2_WARNING=1`) | keine externen Ressourcen |
+| 13.11.2026 | CLI mit argparse statt typer | weniger Abhängigkeiten |
 | 13.11.2026 | Phase 0 hat nur eine Wegwerf-Umgebung außerhalb des Repos benutzt | „noch kein Projektcode“ |
 
 ---
