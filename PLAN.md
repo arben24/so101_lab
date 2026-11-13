@@ -502,6 +502,7 @@ CLI / Skripte / Web-App
 | 13.11.2026 | Doku-Schaltflächen `<a class="lab-link">` mit `docs/javascripts/lab.js`: aktiv nur, wenn `/api/info` antwortet (Doku über `so101-lab web`), sonst deaktiviert mit Hinweis | Vorgabe 5.3 |
 | 13.11.2026 | Mock-Korrektur: Ziel und Grenzen in Koordinaten mit Homing-Offset | vorher falsche Simulation mit Kalibrierung |
 | 13.11.2026 | **Keine blockierenden Browser-Dialoge** (`confirm`, `alert`, `prompt`) im Frontend, stattdessen `<dialog>`. Fehler vom Auftraggeber gefunden: Rückfrage vor „Kalibrierung starten“ hielt das Lebenszeichen an, der Watchdog entzog nach ~420 ms das Steuerrecht. Ein Test prüft `app.js` darauf | blockierende Dialoge stoppen alles JavaScript im Tab |
+| 13.11.2026 | Remote `origin` = `https://github.com/arben24/so101_lab.git`, Branch `main` verfolgt `origin/main`. Gepusht wird vom Auftraggeber selbst. Kalibrierdatei `calibration/robots/so_follower/follower_1.json` liegt im Repo | Vorgabe: Kalibrierdateien ins Repo exportierbar |
 
 ---
 
