@@ -21,7 +21,7 @@ der installierten, gepinnten LeRobot-Version prüfen lässt.
 | Im Repo | `PLAN.md`, `firmware/esp32/` (ESP32-Code, unverändert) |
 | Hardware-Tests | bisher keine. Am Entwicklungsrechner war in Phase 0 kein Servo-Adapter angeschlossen |
 
-Vor Phase 1 zu klären: die Fragen 1, 2 und 6 in Abschnitt 8.
+Die Fragen 1, 2, 5 und 6 aus Abschnitt 8 sind beantwortet (siehe Entscheidungslog). Phase 1 wartet auf das „weiter“ des Auftraggebers.
 
 ---
 
@@ -63,8 +63,21 @@ Wegwerf-Umgebung. Pfade unten sind relativ zu diesem Paketordner.
   - `lekiwi` → `feetech` + pyzmq
   - `core-scripts` → `dataset` + `hardware` + `viz` (datasets, pandas, pyarrow, av, torchcodec, pynput, pyserial, deepdiff, rerun-sdk, foxglove-sdk)
 - Wichtige aufgelöste Versionen: torch 2.15.0, torchvision 0.29.2, numpy 2.2.6, rustypot 1.13.1, pyserial 3.5, pyzmq 27.3.0, draccus 0.11.6, datasets 5.2.0, opencv-python-headless 4.13.0.92, av 15.1.0, torchcodec 0.17.0, rerun-sdk 0.33.1, pynput 1.8.2, evdev 2.0.0.
-- **Größe:** Die Umgebung belegt 6,3 GB. Davon 3,0 GB NVIDIA-CUDA-Bibliotheken und 1,2 GB torch. torch ist eine Basis-Abhängigkeit von LeRobot, also nicht abwählbar.
+- **Größe (Standard-Installation):** Die Umgebung belegt 6,3 GB. Davon 3,0 GB NVIDIA-CUDA-Bibliotheken und 1,2 GB torch. torch ist eine Basis-Abhängigkeit von LeRobot, also nicht abwählbar.
 - **Wichtigste Änderung gegenüber 0.6.x:** In 0.6.1 hing `feetech` noch an `feetech-servo-sdk`. In 0.7.0 läuft der Feetech-Bus über **rustypot** (Pollen Robotics). Die Bus-Klasse heißt jetzt `SerialMotorsBus`, `FeetechMotorsBus` ist nur noch ein veralteter Alias (siehe 3.4).
+
+**torch optional? (geprüft am 13.11.2026, Linux x86_64, lerobot 0.7.0)**
+
+| Variante | Größe | Ergebnis |
+|---|---|---|
+| Standard (torch mit CUDA von PyPI) | 6,3 GB | alles funktioniert |
+| `[tool.uv] exclude-dependencies = ["torch", "torchvision"]` | 379 MB | `lerobot.motors` importiert, aber `lerobot.robots` (Follower, LeKiwi, damit auch `lerobot-calibrate`, `-teleoperate`, `-record`) scheitert: `lerobot/lerobot_types.py` macht `import torch` |
+| **CPU-torch** über `[[tool.uv.index]]` `https://download.pytorch.org/whl/cpu` (explicit) | **1,2 GB** | `torch 2.15.0+cpu`, `SO101Follower` und `LeKiwi` importieren |
+
+- torch bleibt also eine Pflicht-Abhängigkeit, ein Weglassen ist nur für `lerobot.motors` möglich. Die CPU-Variante genügt für Ansteuerung, Kalibrierung, Aufnahme und Replay.
+- `[tool.uv.sources]` wirkt **nur auf direkte Abhängigkeiten**: `torch` und `torchvision` müssen dafür selbst in `dependencies` stehen, sonst kommt weiter die CUDA-Version von PyPI.
+- CUDA (Training, Übung 7) wird als optionaler Extra umgesetzt, der die Quelle auf PyPI umstellt. Dafür braucht uv `[tool.uv] conflicts` zwischen den Extras. Umsetzung und Test in Phase 1.
+- Der Index-Eintrag gilt nur für Linux x86_64 (Marker). Windows, macOS und aarch64 bekommen ihre Standard-Räder (Windows 2.15.0 ohne CUDA-Pakete laut Auflösung, macOS 2.11.0).
 
 ### 3.2 Plattformen (Auflösung geprüft, nicht auf den Systemen installiert)
 
@@ -419,7 +432,10 @@ Pakete werden stillschweigend verworfen**, es gibt keine Fehlerantwort.
 |---|---|---|
 | 13.11.2026 | Das Arbeitsverzeichnis `/home/student/so101_lab` ist die Wurzel des Repos, Branch `main` | dort lag der Anhang, kein zusätzlicher Unterordner nötig |
 | 13.11.2026 | ESP32-Code liegt direkt unter `firmware/esp32/` (ohne den Zwischenordner `esp32_funkknoten/`), Inhalt byteweise unverändert (30 Dateien per SHA-256 gegen das ZIP geprüft). Das ZIP wurde danach gelöscht | Zielstruktur aus dem Auftrag, der Code bleibt Referenz |
-| 13.11.2026 | **Vorläufig:** LeRobot wird auf **0.7.0** gepinnt, Extras `feetech`, `lekiwi`, `core-scripts` | neueste stabile Version. 0.6.1 nutzt die Bus-Schicht, die gerade ersetzt wurde. Bestätigung offen (Frage 1) |
+| 13.11.2026 | LeRobot wird auf **0.7.0** gepinnt, Extras `feetech`, `lekiwi`, `core-scripts` (**vom Auftraggeber bestätigt**) | neueste stabile Version. 0.6.1 nutzt die Bus-Schicht, die gerade ersetzt wurde |
+| 13.11.2026 | Repo-Wurzel bleibt `/home/student/so101_lab` (vom Auftraggeber bestätigt) | |
+| 13.11.2026 | Standardmäßig **CPU-torch** (1,2 GB), CUDA als optionaler Extra für Training | Auftraggeber: erst geht es um die einfache Ansteuerung. Geprüft, dass torch nicht komplett entfallen kann (siehe 3.1) |
+| 13.11.2026 | USB-Adapter: QinHeng Electronics „USB Single Serial“, **USB-ID 1a86:55d3**, erscheint als `/dev/ttyACM0` (Vorlage für die udev-Regel). Port war zuvor nicht vorhanden, taucht beim Anstecken auf | `lsusb` des Auftraggebers |
 | 13.11.2026 | Es wird nicht auf `FeetechMotorsBus` aufgebaut | in 0.7.0 als veraltet markiert |
 | 13.11.2026 | Phase 0 hat nur eine Wegwerf-Umgebung außerhalb des Repos benutzt | „noch kein Projektcode“ |
 
@@ -427,12 +443,12 @@ Pakete werden stillschweigend verworfen**, es gibt keine Fehlerantwort.
 
 ## 8. Offene Fragen
 
-1. **LeRobot-Version:** 0.7.0 (neu, rustypot-Bus) oder 0.6.1 (älter, Bus-Schicht läuft aus)? Vorschlag: 0.7.0.
-2. **Repo-Wurzel:** Bleibt `/home/student/so101_lab` die Wurzel?
+1. ~~LeRobot-Version~~ → 0.7.0 (entschieden).
+2. ~~Repo-Wurzel~~ → bleibt (entschieden).
 3. **ESP32-Teststand:** Wurde ein SO-101-Arm (Profil `so101`) schon über den ESP32 bewegt? Das README sagt nein.
 4. **ESP32-Transport:** Reicht für `Esp32Backend` zunächst UDP über WLAN? Das Gateway (ESP-NOW über USB) ist laut README ungetestet. Vorschlag: UDP zuerst, Gateway als spätere Ergänzung.
-5. **USB-Adapter:** Welche Servo-Adapter sind im Einsatz? Für die udev-Regel in Phase 1 wird die Ausgabe von `lsusb` mit angestecktem Adapter gebraucht (Hersteller- und Produkt-ID).
-6. **torch-Variante:** Standard unter Linux ist torch mit CUDA (Umgebung 6,3 GB). Soll das Repo standardmäßig die CPU-Variante installieren und CUDA nur als Option anbieten (für Übung 7)?
+5. ~~USB-Adapter~~ → 1a86:55d3 (siehe Entscheidungslog). Offen: Ist das der Adapter am Follower und am Leader, oder nur an einem? Wird ein zweiter Arm gleichzeitig angeschlossen, brauchen die Regeln stabile Namen über die Seriennummer.
+6. ~~torch-Variante~~ → CPU als Standard, CUDA optional (entschieden).
 7. **Raspberry Pi:** Darf die Pi-Anleitung ein vollständiges LeRobot samt torch voraussetzen? Welche Speicherkartengröße und wie viel RAM haben die vorhandenen Geräte mindestens?
 8. **Veröffentlichung:** Wird das Repo öffentlich (GitLab Pages)? Dann müssten die Feetech-PDFs und die XLS-Tabelle unter `firmware/esp32/doku/` auf ihre Weitergabe geprüft oder durch Links ersetzt werden.
 9. **Netzteil- und Motorvarianten:** Platzhalter in Kapitel 01, füllt der Auftraggeber aus (Phase 3).
