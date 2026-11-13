@@ -39,14 +39,35 @@ Schritt 5 fragt vor der Bewegung nach einer Bestätigung. Das Gelenk fährt nur 
 | Was | Wo | Wofür |
 |---|---|---|
 | Lernskripte | `scripts/01…07` | kurze, kommentierte Programme, jedes für sich lauffähig |
-| Befehl `so101-lab` | `doctor`, `ports`, `scan`, `state` | Umgebung prüfen, Servos suchen, Zustand lesen |
+| Befehl `so101-lab` | `doctor`, `ports`, `scan`, `state`, `web` | Umgebung prüfen, Servos suchen, Zustand lesen, Web-App |
 | Konfiguration | `config/arms.toml` | welche Geräte es gibt, Port, Kalibrierung, Bewegungsgrenzen |
 | Aufnahmen | `recordings/` | Bewegungen als CSV und JSON (nicht im Git) |
 | Kalibrierung | `calibration/` | Kalibrierdateien je Arm im LeRobot-Format |
 | ESP32-Firmware | `firmware/esp32/` | Referenz für die Funkanbindung (Kapitel 07, folgt) |
 
-Die Web-App (`so101-lab web`) mit Statusseite, Not-Aus, Servo-Einrichtung und Recorder folgt in
-einer späteren Ausbaustufe. Bis dahin ist alles über die Skripte und die Kommandozeile erreichbar.
+## Die Web-App
+
+```bash
+uv run so101-lab web            # dann im Browser: http://127.0.0.1:8000/
+```
+
+Die Web-App zeigt alle Geräte aus `config/arms.toml`. Für USB-Geräte wählst du den Port aus einer
+Liste aller USB- und ACM-Ports. Nach dem Verbinden siehst du je Gelenk live Position, Spannung,
+Temperatur, Strom, Drehmoment und Fehler. Diese Doku ist unter `/docs/` eingebunden.
+
+- **NOT-AUS** oben rechts (oder die Taste **Esc**) ist immer erreichbar: Räder stopp, Drehmoment aus,
+  für alle verbundenen Geräte. Jeder darf ihn auslösen.
+- **Steuerrecht:** Mehrere Browser dürfen zuschauen, aber nur einer steuert. Übernehmen geht nur
+  ausdrücklich.
+- **Watchdog:** Der steuernde Browser schickt alle 100 ms ein Lebenszeichen. Bleibt es länger als
+  400 ms aus (Tab geschlossen, Netz weg; auch ein Tab im Hintergrund kann dafür zu langsam werden),
+  verliert er das Steuerrecht und das Gerät geht in den sicheren Zustand (`safe_state`).
+- **Beenden** mit Strg+C setzt alle Geräte sicher zurück.
+- **Im Netzwerk** (z. B. auf einem Raspberry Pi): `so101-lab web --host 0.0.0.0 --token <geheim>`.
+  Ohne Token startet der Server dann nicht. Im Browser `http://<adresse>:8000/?token=<geheim>` öffnen.
+
+Einzelservo-Panel, Register-Explorer, Kalibrierung, Servo-Einrichtung und Recorder kommen in den
+nächsten Ausbaustufen dazu.
 
 ## Die Lernskripte
 
