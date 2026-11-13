@@ -1,0 +1,96 @@
+/* so101-lab – schlichtes Layout ohne externe Schriften oder Bibliotheken. */
+:root {
+  --bg: #f4f5f7;
+  --card: #ffffff;
+  --text: #1d2125;
+  --muted: #5e6670;
+  --line: #d9dde2;
+  --accent: #1f6feb;
+  --warn: #b35900;
+  --danger: #c62828;
+  --ok: #2e7d32;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15181c;
+    --card: #1e2227;
+    --text: #e6e9ec;
+    --muted: #9aa3ad;
+    --line: #333a42;
+    --accent: #4c8dff;
+    --warn: #e08a2c;
+    --danger: #ef5350;
+    --ok: #66bb6a;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.topbar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; gap: 16px;
+  padding: 8px 16px;
+  background: var(--card); border-bottom: 1px solid var(--line);
+}
+.brand { font-weight: 700; }
+nav { display: flex; gap: 12px; flex: 1; }
+nav a { color: var(--muted); text-decoration: none; }
+nav a.active, nav a:hover { color: var(--text); }
+nav a.disabled { pointer-events: none; opacity: .4; }
+.live { font-size: 13px; color: var(--muted); }
+.live.ok::before { content: "● "; color: var(--ok); }
+.live.bad::before { content: "● "; color: var(--danger); }
+.estop {
+  background: var(--danger); color: #fff; border: 0; border-radius: 6px;
+  font-weight: 800; font-size: 16px; letter-spacing: .05em;
+  padding: 10px 22px; cursor: pointer; box-shadow: 0 0 0 3px rgba(198,40,40,.25);
+}
+.estop:active { transform: translateY(1px); }
+main { max-width: 1200px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; }
+.card h2 { font-size: 16px; margin: 0 0 10px; }
+.row { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+.spacer { flex: 1; }
+label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 2px; }
+select, input {
+  font: inherit; color: var(--text); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 5px; padding: 5px 8px; min-width: 160px;
+}
+#port-select { min-width: 360px; }
+button {
+  font: inherit; border: 1px solid transparent; border-radius: 5px; padding: 6px 12px; cursor: pointer;
+  background: var(--accent); color: #fff;
+}
+button.secondary { background: transparent; color: var(--text); border-color: var(--line); }
+button.warn { background: var(--warn); }
+button:disabled { opacity: .4; cursor: not-allowed; }
+.hint { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margin: 10px 0 0; font-size: 13px; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; word-break: break-all; }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 4px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child, th:last-child, td:last-child { text-align: left; }
+th { font-size: 12px; color: var(--muted); font-weight: 600; }
+td.on { color: var(--warn); font-weight: 600; }
+td.err { color: var(--danger); }
+#control-status.mine { color: var(--ok); font-weight: 600; }
+#control-status.other { color: var(--warn); font-weight: 600; }
+#events { list-style: none; margin: 0; padding: 0; font-size: 13px; max-height: 220px; overflow-y: auto; }
+#events li { padding: 2px 0; border-bottom: 1px dashed var(--line); }
+#events .warn { color: var(--warn); }
+#events .error { color: var(--danger); }
+#events time { color: var(--muted); margin-right: 8px; }
+#toast {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+  background: var(--danger); color: #fff; padding: 8px 16px; border-radius: 6px;
+  display: none; max-width: 90vw;
+}
+#toast.show { display: block; }
+#toast.info { background: var(--accent); }
+dialog { border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--text); }

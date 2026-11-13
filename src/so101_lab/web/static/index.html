@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>so101-lab</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">so101-lab</div>
+    <nav>
+      <a href="index.html" class="active">Labor</a>
+      <a href="docs/index.html" id="docs-link">Doku</a>
+    </nav>
+    <div class="live" id="live-status" title="Live-Verbindung zum Server">getrennt</div>
+    <button class="estop" id="estop" title="Räder stopp, Drehmoment aus – für alle Geräte">NOT-AUS</button>
+  </header>
+
+  <main>
+    <section class="card" id="device-card">
+      <h2>Gerät</h2>
+      <div class="row">
+        <label>Gerät
+          <select id="device-select"></select>
+        </label>
+        <label id="port-label">Port
+          <select id="port-select"></select>
+        </label>
+        <button id="port-refresh" class="secondary" title="Portliste neu laden">↻</button>
+        <button id="connect">Verbinden</button>
+        <button id="disconnect" class="secondary">Trennen</button>
+      </div>
+      <p class="hint" id="port-hint"></p>
+      <dl class="facts" id="facts"></dl>
+    </section>
+
+    <section class="card" id="control-card">
+      <h2>Steuerung</h2>
+      <p id="control-status">Kein Gerät verbunden.</p>
+      <div class="row">
+        <button id="take-control">Steuerung übernehmen</button>
+        <button id="force-control" class="warn">Übernehmen erzwingen</button>
+        <button id="release-control" class="secondary">Steuerung abgeben</button>
+        <span class="spacer"></span>
+        <button id="torque-on" class="warn">Drehmoment an</button>
+        <button id="torque-off" class="secondary">Drehmoment aus</button>
+      </div>
+      <p class="hint">
+        Nur wer steuert, darf etwas bewegen. Der Browser schickt dafür laufend ein Lebenszeichen.
+        Bleibt es länger als der Watchdog aus (Tab geschlossen, Netz weg; auch ein Tab im Hintergrund
+        kann zu langsam werden), geht das Gerät in den sicheren Zustand. Esc = Not-Aus.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Gelenke</h2>
+      <div class="table-wrap">
+        <table id="joints">
+          <thead>
+            <tr>
+              <th>Gelenk</th><th>ID</th><th>Roh</th><th>Wert</th><th>Grenzen</th><th>Tempo</th>
+              <th>Last</th><th>U/V</th><th>T/°C</th><th>I/mA</th><th>DM</th><th>Fehler</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Meldungen</h2>
+      <ul id="events"></ul>
+    </section>
+  </main>
+
+  <dialog id="token-dialog">
+    <form method="dialog" id="token-form">
+      <h2>Token nötig</h2>
+      <p>Dieser Server ist im Netzwerk erreichbar und verlangt ein Zugriffstoken.</p>
+      <input id="token-input" type="password" autocomplete="off" placeholder="Token" required>
+      <div class="row"><button type="submit">Anmelden</button></div>
+    </form>
+  </dialog>
+
+  <div id="toast" role="alert"></div>
+  <script src="app.js"></script>
+</body>
+</html>
