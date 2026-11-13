@@ -135,3 +135,5 @@ label.check input { min-width: 0; }
 .range-bar { position: relative; height: 10px; width: 260px; background: var(--bg); border: 1px solid var(--line); border-radius: 3px; }
 .range-bar .span { position: absolute; top: 0; bottom: 0; background: var(--accent); opacity: .5; }
 .range-bar .now { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--text); }
+#ask-dialog { max-width: 520px; }
+#ask-text { white-space: pre-line; }

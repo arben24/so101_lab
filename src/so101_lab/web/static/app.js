@@ -62,6 +62,25 @@ async function api(method, path, body) {
   return data;
 }
 
+// Rückfrage als Dialog in der Seite. NICHT window.confirm(): Das hält das ganze JavaScript an,
+// auch das Lebenszeichen an den Server. Nach 400 ms würde der Watchdog das Steuerrecht entziehen.
+function ask(text, okLabel = "Ja, fortfahren") {
+  return new Promise((resolve) => {
+    const dialog = $("ask-dialog");
+    $("ask-text").textContent = text;
+    $("ask-ok").textContent = okLabel;
+    const finish = (answer) => {
+      dialog.onclose = null;
+      dialog.close();
+      resolve(answer);
+    };
+    $("ask-ok").onclick = () => finish(true);
+    $("ask-cancel").onclick = () => finish(false);
+    dialog.onclose = () => resolve(false); // Esc schließt den Dialog: gilt als Nein
+    dialog.showModal();
+  });
+}
+
 function toast(text, kind = "error") {
   const el = $("toast");
   el.textContent = text;
@@ -333,7 +352,7 @@ function bind() {
   $("take-control").onclick = () => action(() => api("POST", deviceUrl("control"), { client_id: app.clientId }));
   $("force-control").onclick = () =>
     action(async () => {
-      if (!confirm("Ein anderer Client steuert gerade. Wirklich übernehmen?")) return;
+      if (!(await ask("Ein anderer Client steuert gerade. Wirklich übernehmen?", "Übernehmen"))) return;
       await api("POST", deviceUrl("control"), { client_id: app.clientId, force: true });
     });
   $("release-control").onclick = () =>
@@ -545,10 +564,11 @@ function writeRegister(joint, r, value) {
   action(async () => {
     const eeprom = r.write === "eeprom";
     if (eeprom) {
-      const ok = confirm(
+      const ok = await ask(
         `EEPROM schreiben: ${joint}.${r.name} = ${r.value} → ${value}\n\n` +
           "Der Wert bleibt dauerhaft im Servo, auch nach dem Ausschalten. Das Drehmoment dieses Servos wird " +
           "dabei ausgeschaltet. Falsche Werte können das Verhalten des Servos stark verändern.\n\nWirklich schreiben?",
+        "EEPROM schreiben",
       );
       if (!ok) return;
     }
@@ -647,9 +667,12 @@ function calibrationStep(step) {
 }
 
 function bindCalibration() {
-  $("cal-start").onclick = () => {
-    if (confirm("Kalibrierung starten? Das Drehmoment aller Gelenke geht aus, der Arm wird kraftlos. Arm festhalten!"))
-      calibrationStep("start");
+  $("cal-start").onclick = async () => {
+    const ok = await ask(
+      "Kalibrierung starten? Das Drehmoment aller Gelenke geht aus, der Arm wird kraftlos. Arm festhalten!",
+      "Starten",
+    );
+    if (ok) calibrationStep("start");
   };
   $("cal-middle").onclick = () => calibrationStep("middle");
   $("cal-finish").onclick = () => calibrationStep("finish");

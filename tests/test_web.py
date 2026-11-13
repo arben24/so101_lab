@@ -396,3 +396,19 @@ def test_watchdog_aborts_calibration_and_restores(config_path):
             assert wait_for(lambda: server.sessions["demo"].calibration_run.stage == "abgebrochen")
             assert all(s.values["homing_offset"] == 0 for s in bus.servos)
             assert all(s.values["max_position_limit"] == 4095 for s in bus.servos)
+
+
+def test_frontend_uses_no_blocking_dialogs():
+    """confirm()/alert()/prompt() halten im Browser alles JavaScript an, auch das Lebenszeichen.
+    Dann entzieht der Watchdog das Steuerrecht, während die Rückfrage offen ist."""
+    import re
+
+    from so101_lab.web.app import STATIC_DIR
+
+    code = "\n".join(
+        line
+        for line in (STATIC_DIR / "app.js").read_text(encoding="utf-8").splitlines()
+        if not line.lstrip().startswith("//")
+    )
+    assert not re.search(r"(?<![\w.])(confirm|alert|prompt)\s*\(", code)
+    assert not re.search(r"window\.(confirm|alert|prompt)\s*\(", code)
