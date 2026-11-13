@@ -63,6 +63,11 @@ class Arm:
         return FULL_RANGE
 
     @property
+    def motion_ready(self) -> bool:
+        """Sind Tempo- und Beschleunigungsgrenze in dieser Verbindung schon gesetzt?"""
+        return self._motion_ready
+
+    @property
     def is_calibrated(self) -> bool:
         return bool(self.calibration) and all(j.name in self.calibration for j in self.spec.position_joints)
 
