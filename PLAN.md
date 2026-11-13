@@ -15,13 +15,13 @@ der installierten, gepinnten LeRobot-Version prüfen lässt.
 | | |
 |---|---|
 | Datum | 13.11.2026 |
-| Phase | **1 – Grundgerüst abgeschlossen**, wartet auf Abnahme |
-| Nächste Phase | 2 – Backend-Schicht (Modell-Empfehlung: **Stark**) |
-| Projektcode | CLI `so101-lab` (`doctor` fertig, `scan`/`web` Platzhalter), `config/`, `docs/`-Gerüst, Tests |
+| Phase | **2 – Backend-Schicht abgeschlossen**, wartet auf Abnahme |
+| Nächste Phase | 3 – Lernskripte und Grundlagen-Doku (Modell-Empfehlung: Mittel, Glättung Klein) |
+| Projektcode | Backends `usb`, `mock` (`src/so101_lab/backends/`), `Arm` mit Sicherheitsregeln, Konfig-Lader, Kalibrierformat, CLI `doctor`/`ports`/`scan`/`state`, 68 Tests |
 | Im Repo | `PLAN.md`, `firmware/esp32/` (ESP32-Code, unverändert) |
-| Hardware-Tests | `doctor` hat den Adapter 1a86:55d3 an `/dev/ttyACM0` erkannt (nur Lesen, kein Port geöffnet). Servos wurden noch nicht angesprochen |
+| Hardware-Tests | 13.11.2026: `/dev/ttyACM0` öffnet, Scan bei 1 Mbit/s und über alle Baudraten läuft fehlerfrei (0,8 s bzw. 8 s), **aber kein Servo antwortet** (vermutlich Netzteil aus oder kein Arm angesteckt). Lesen am echten Servo also noch ungeprüft |
 
-Die Fragen 1, 2, 5 und 6 aus Abschnitt 8 sind beantwortet (siehe Entscheidungslog). Phase 1 wartet auf das „weiter“ des Auftraggebers.
+Phase 2 wartet auf die Abnahme am echten Arm (Abschnitt „Hardware-Tests“).
 
 ---
 
@@ -33,7 +33,7 @@ Textarbeit, Boilerplate, Styling.
 
 - [x] **0 – Erkundung** (Stark): LeRobot-Version, Bus-API, Steuertabelle, Gelenke, Kalibrierung, CLI, ESP32-Protokoll
 - [x] **1 – Grundgerüst** (Mittel): uv-Projekt, `pyproject.toml` mit Gruppen, `config/arms.toml`, udev-Regel, CLI `so101-lab` mit `doctor`, ruff/pytest, MkDocs-Gerüst
-- [ ] **2 – Backend-Schicht** (Stark): `ArmBackend`, `UsbBackend`, `MockBackend`, Konfigurations-Lader, Sicherheitsfunktionen, Tests
+- [x] **2 – Backend-Schicht** (Stark): `ArmBackend`, `UsbBackend`, `MockBackend`, Konfigurations-Lader, Sicherheitsfunktionen, Tests
 - [ ] **3 – Lernskripte + Grundlagen-Doku** (Mittel, Glättung Klein): Skripte 01–07, Kapitel 00–04
 - [ ] **4 – Web-App-Kern** (Stark, Styling Klein): FastAPI, Statusseite, Not-Aus, Einzelservo, Register-Explorer, WebSocket, Token, Steuer-Sperre, Watchdog. *Nach erstem lauffähigen Teilschritt kurz anhalten.*
 - [ ] **5 – ID-Einrichtungsassistent** (Stark): Assistent, Ein-Servo-Pflicht, Verifikation, Skript 05
@@ -405,6 +405,23 @@ Pakete werden stillschweigend verworfen**, es gibt keine Fehlerantwort.
 - **Datasets immer lokal:** `push_to_hub=false`, `root` unter `recordings/`.
 - **`so101-lab doctor`** prüft zusätzlich: Compiler für `evdev`, Gruppenrechte am Port, Busspannung passend zum Gerätetyp (Schwellen aus dem Netzteil-Platzhalter).
 
+### Aufbau der Backend-Schicht (Stand Phase 2)
+
+```
+CLI / Skripte / Web-App
+        │  Gelenknamen, Grad, Grenzen
+   so101_lab.arm.Arm  ── safety.open_arm() (try/finally), clamp, Whitelist
+        │  IDs, Registernamen, rohe Schritte
+   backends.ArmBackend ── write_eeprom / change_id / change_baudrate (gemeinsam, mit Prüfung)
+     ├ UsbBackend   rustypot.Bus (alle IDs 0–253), kein configure() von LeRobot
+     ├ MockBackend  simulierte STS3215 (Register, EEPROM-Sperre, Bewegung, Baudrate)
+     ├ RemoteBackend (Phase 7)   └ Esp32Backend (Phase 8)
+```
+
+- Registertabelle: `registers.py` erzeugt sie zur Laufzeit aus rustypot; kanonischer Name je Adresse = der zuletzt deklarierte (entspricht LeRobot).
+- Gelenktabellen: `devices/so101.py`, `devices/lekiwi.py`.
+- Portwahl: `ports.list_serial_ports()` liefert alle USB-Seriell-Ports mit USB-ID, Seriennummer und Text (`label`) für Auswahllisten.
+
 ---
 
 ## 6. Risiken
@@ -419,7 +436,7 @@ Pakete werden stillschweigend verworfen**, es gibt keine Fehlerantwort.
 | R6 | ESP32: Arm-Profile laut README ungetestet | Frage 3, in Phase 8 zuerst mit einem einzelnen Servo testen |
 | R7 | Baudraten-Tabelle widersprüchlich | Scan zeigt die Rate an, bei der ein Servo antwortet. Umstellen nur auf 1 Mbit/s |
 | R8 | Leader- und Follower-Servos per Software nicht unterscheidbar | Gerätetyp steht in `config/arms.toml`, Plausibilitätsprüfung über die Busspannung |
-| R9 | Datenrate 30–50 Hz über USB nicht gemessen. Mehrere Größen je Zyklus bedeuten mehrere Sync-Reads | in Phase 2 messen, langsame Größen (Temperatur, Spannung) seltener lesen |
+| R9 | Datenrate 30–50 Hz über USB nicht gemessen (in Phase 2 mangels antwortender Servos weiter offen). Mehrere Größen je Zyklus bedeuten mehrere Sync-Reads | in Phase 2 messen, langsame Größen (Temperatur, Spannung) seltener lesen |
 | R10 | Offline-Betrieb: LeRobot greift an mehreren Stellen auf den Hugging Face Hub zu | Aufrufe mit lokalen Pfaden kapseln, in Phase 6 ohne Netz testen |
 | R11 | Windows und macOS nur über die Auflösung geprüft | Abnahme durch Testpersonen in Phase 1 und 2 |
 | R12 | Hersteller-PDFs liegen im Repo | Frage 8 |
@@ -440,6 +457,15 @@ Pakete werden stillschweigend verworfen**, es gibt keine Fehlerantwort.
 | 13.11.2026 | torch bleibt Pflicht (Auftraggeber). Umsetzung: `torch`/`torchvision` stehen in den uv-Gruppen `cpu` (Standard) und `cuda` (`uv sync --no-group cpu --group cuda`, Index cu132), mit `conflicts`. `uv sync` mit CPU: Umgebung 2,1 GB inkl. Doku und Dataset-Paketen | `[tool.uv.sources]` wirkt nur auf direkte Abhängigkeiten, Gruppen lösen das |
 | 13.11.2026 | Doku offline: `theme.font: false`, `use_directory_urls: false`, `extra.generator: false`; Hinweis: mkdocs zeigt eine MkDocs-2.0-Warnung (abschaltbar mit `NO_MKDOCS_2_WARNING=1`) | keine externen Ressourcen |
 | 13.11.2026 | CLI mit argparse statt typer | weniger Abhängigkeiten |
+| 13.11.2026 | **Keine udev-Regeln** vorerst (Auftraggeber). `config/99-so101.rules` wieder entfernt. Der Port wird vom Nutzer gewählt: `--port`, Eintrag in `arms.toml` (optional) oder Auswahl aus `so101-lab ports`; in der Web-App (Phase 4) als Dropdown aller USB-/ACM-Geräte | spätere Ergänzung möglich (Seriennummer des Adapters bekannt) |
+| 13.11.2026 | Backend-Schnittstelle arbeitet mit **rohen Servo-Einheiten**; Gelenknamen, Kalibrierung und Grenzen liegen in `Arm` | alle Backends (auch ESP32) können das |
+| 13.11.2026 | `UsbBackend` direkt auf `rustypot.Bus`, nicht auf `SerialMotorsBus`/LeRobot-Roboterklassen | Scan über IDs/Baudraten nur dort; LeRobot schreibt beim Verbinden ins EEPROM |
+| 13.11.2026 | EEPROM nur über `write_eeprom`/`change_id`/`change_baudrate` in der Basisklasse: Drehmoment aus → lock 0 → schreiben → lock 1 → zurücklesen/Ping. `write_register` lehnt EEPROM ab, `torque_enable` nur 0/1 | gleiche, nachvollziehbare Prozedur für alle Backends |
+| 13.11.2026 | Baudraten-Werte nach **rustypot** (Widerspruch zu V3.7 bleibt dokumentiert) | rustypot ist der Treiber, der tatsächlich schreibt |
+| 13.11.2026 | `safe_state` Standard **torque_off** (wie LeRobot `disable_torque_on_disconnect`), `hold` wählbar; Not-Aus schaltet immer das Drehmoment aus; Räder werden immer zuerst gestoppt | Bestätigung offen (Frage 10) |
+| 13.11.2026 | Bewegungs-Standardwerte: 1000 Schritt/s, Beschleunigung 20 (2000 Schritt/s²), größter Sprung 400 Schritt (~35°), Radtempo ≤ 3000 | vorsichtige Lehrwerte, je Gerät in `arms.toml` änderbar |
+| 13.11.2026 | Kalibrierdateien im Repo unter `calibration/<robots|teleoperators>/<so_follower|so_leader|lekiwi>/<id>.json` (LeRobot-Format und -Struktur), Fallback auf die LeRobot-Ablage | gleiche Datei für LeRobot über `--robot.calibration_dir` nutzbar |
+| 13.11.2026 | Mock-Annahmen: 12,0 V, 25 °C, EEPROM-Schreiben nur ohne Drehmoment, lock nach dem Einschalten 0 (Werkswert V3.7) | nur Simulation, im Code dokumentiert |
 | 13.11.2026 | Phase 0 hat nur eine Wegwerf-Umgebung außerhalb des Repos benutzt | „noch kein Projektcode“ |
 
 ---
@@ -454,4 +480,6 @@ Pakete werden stillschweigend verworfen**, es gibt keine Fehlerantwort.
 6. ~~torch-Variante~~ → CPU als Standard, CUDA optional (entschieden).
 7. **Raspberry Pi:** Darf die Pi-Anleitung ein vollständiges LeRobot samt torch voraussetzen? Welche Speicherkartengröße und wie viel RAM haben die vorhandenen Geräte mindestens?
 8. **Veröffentlichung:** Wird das Repo öffentlich (GitLab Pages)? Dann müssten die Feetech-PDFs und die XLS-Tabelle unter `firmware/esp32/doku/` auf ihre Weitergabe geprüft oder durch Links ersetzt werden.
+10. **safe_state:** Standard „Drehmoment aus“ beim Beenden (Arm sinkt ab) oder „Stellung halten“ (Servos bleiben warm)? Derzeit torque_off wie LeRobot.
+11. **Hardware-Abnahme Phase 2:** Scan fand an `/dev/ttyACM0` keinen Servo. Bitte mit eingeschaltetem Servo-Netzteil wiederholen (Testanleitung).
 9. **Netzteil- und Motorvarianten:** Platzhalter in Kapitel 01, füllt der Auftraggeber aus (Phase 3).
