@@ -15,13 +15,14 @@ der installierten, gepinnten LeRobot-Version prüfen lässt.
 | | |
 |---|---|
 | Datum | 13.11.2026 |
-| Phase | **2 – Backend-Schicht abgeschlossen**, wartet auf Abnahme |
-| Nächste Phase | 3 – Lernskripte und Grundlagen-Doku (Modell-Empfehlung: Mittel, Glättung Klein) |
-| Projektcode | Backends `usb`, `mock` (`src/so101_lab/backends/`), `Arm` mit Sicherheitsregeln, Konfig-Lader, Kalibrierformat, CLI `doctor`/`ports`/`scan`/`state`, 68 Tests |
+| Phase | **3 – Lernskripte und Grundlagen-Doku abgeschlossen**, wartet auf Abnahme am Arm |
+| Nächste Phase | 4 – Web-App-Kern (Modell-Empfehlung: Stark, reines UI-Styling Klein) |
+| Projektcode | wie Phase 2, dazu `register_info.py`, `trajectories.py` (CSV/JSON), `script_support.py`, Skripte `scripts/01…07`, 104 Tests |
+| Doku | Kapitel 00–04 (`docs/index.md`, `01…04`) geschrieben, `mkdocs build --strict` fehlerfrei. **Platzhalter für Netzteil- und Motorvarianten in Kapitel 01 ist noch auszufüllen** (Frage 9) |
 | Im Repo | `PLAN.md`, `firmware/esp32/` (ESP32-Code, unverändert) |
-| Hardware-Tests | 13.11.2026: `/dev/ttyACM0` öffnet, Scan bei 1 Mbit/s und über alle Baudraten läuft fehlerfrei (0,8 s bzw. 8 s), **aber kein Servo antwortet** (vermutlich Netzteil aus oder kein Arm angesteckt). Lesen am echten Servo also noch ungeprüft |
+| Hardware-Tests | 13.11.2026 (Phase 2): `/dev/ttyACM0` öffnet, Scan läuft fehlerfrei, **aber kein Servo antwortet** (vermutlich Netzteil aus oder kein Arm angesteckt). Lesen und Bewegen am echten Servo sind **noch ungeprüft**, ebenso die Skripte 02–07 |
 
-Phase 2 wartet auf die Abnahme am echten Arm (Abschnitt „Hardware-Tests“).
+Phase 2 und 3 warten auf die Abnahme am echten Arm (Testanleitungen im Bericht der jeweiligen Phase).
 
 ---
 
@@ -34,9 +35,9 @@ Textarbeit, Boilerplate, Styling.
 - [x] **0 – Erkundung** (Stark): LeRobot-Version, Bus-API, Steuertabelle, Gelenke, Kalibrierung, CLI, ESP32-Protokoll
 - [x] **1 – Grundgerüst** (Mittel): uv-Projekt, `pyproject.toml` mit Gruppen, `config/arms.toml`, udev-Regel, CLI `so101-lab` mit `doctor`, ruff/pytest, MkDocs-Gerüst
 - [x] **2 – Backend-Schicht** (Stark): `ArmBackend`, `UsbBackend`, `MockBackend`, Konfigurations-Lader, Sicherheitsfunktionen, Tests
-- [ ] **3 – Lernskripte + Grundlagen-Doku** (Mittel, Glättung Klein): Skripte 01–07, Kapitel 00–04
+- [x] **3 – Lernskripte + Grundlagen-Doku** (Mittel, Glättung Klein): Skripte 01–07, Kapitel 00–04
 - [ ] **4 – Web-App-Kern** (Stark, Styling Klein): FastAPI, Statusseite, Not-Aus, Einzelservo, Register-Explorer, WebSocket, Token, Steuer-Sperre, Watchdog. *Nach erstem lauffähigen Teilschritt kurz anhalten.*
-- [ ] **5 – ID-Einrichtungsassistent** (Stark): Assistent, Ein-Servo-Pflicht, Verifikation, Skript 05
+- [ ] **5 – ID-Einrichtungsassistent** (Stark): Assistent in der Web-App, Ein-Servo-Pflicht, Verifikation, Protokoll, Baudrate. Skript 05 (nur ID) gibt es seit Phase 3
 - [ ] **6 – Trajektorien & Kamera** (Mittel, Dataset Stark): Recorder, Bibliothek, Abspielen, Kamera, LeRobot-Dataset, Kalibrierung, Kapitel 05. *Zwischenhalt.*
 - [ ] **7 – Netzwerk / Raspberry Pi** (Stark): `RemoteBackend`, Pi-Anleitung, systemd, API-Referenz, Kapitel 06. *Zwischenhalt.*
 - [ ] **8 – ESP32** (Stark): `Esp32Backend`, Funktionsmatrix, Kapitel 07
@@ -226,6 +227,15 @@ Die Tabelle V3.7 beschreibt die 7,4-V-Variante (Werkswert `max_voltage_limit` 80
 
 Welche Zuordnung stimmt, ist nicht geklärt. Für den Betrieb mit 1 Mbit/s spielt es
 keine Rolle. Beim Scan über alle Baudraten und beim Umstellen der Baudrate schon.
+
+**Ergänzungen (13.11.2026, Phase 3, aus V3.7, Protokollhandbuch und `firmware/esp32/doku/sts3215/README.md`):**
+
+- Adresse 3 und 4 heißen in V3.7 „Servo major/minor version“ (Startwerte 9 und 3). rustypot liest Adresse 3 als 2-Byte-`model_number`: 0x0309 = 777.
+- `goal_velocity` (Adresse 46) ist im Positionsmodus das **Fahrtempo zum Ziel**. Beleg: Protokollhandbuch Beispiel 4 („Servo 1 auf 2048, Tempo 1000“, Schreiben ab Adresse 42: Position, Zeit, Tempo). README des Auftraggebers: „0 = ohne Grenze“. `Arm.configure_motion` schreibt nie 0 (Untergrenze 1).
+- Einheit von `torque_limit` (Adresse 48): V3.7 nennt „1 %“, Wertebereich 0–1000 und Startwert 1000 sprechen für 0,1 % (wie `max_torque_limit`). Im Code und in der Doku gilt 0,1 %.
+- `lock` laut V3.7: 0 = EEPROM-Änderungen bleiben nach dem Ausschalten erhalten, 1 = gehen verloren.
+- `lerobot-calibrate` verlangt genau ein Gerät (`--robot.*` **oder** `--teleop.*`), ruft `connect(calibrate=False)` (das führt `configure()` aus, also EEPROM-Schreiben) und danach `calibrate()`. Parameter `--robot.calibration_dir` ist ein Ordner, die Datei heißt `<id>.json`.
+- `config_so_follower.py`: P 16, I 0, D 32 als Standard beim Verbinden; eine Begründung steht dort nicht.
 
 **Motorvarianten:** Alle STS3215 melden die Modellnummer 777. rustypot kennt keine
 Variantennamen (C001, C018, C044, C046, C047 ergeben keinen Treffer). Leader- und
@@ -467,6 +477,16 @@ CLI / Skripte / Web-App
 | 13.11.2026 | Kalibrierdateien im Repo unter `calibration/<robots|teleoperators>/<so_follower|so_leader|lekiwi>/<id>.json` (LeRobot-Format und -Struktur), Fallback auf die LeRobot-Ablage | gleiche Datei für LeRobot über `--robot.calibration_dir` nutzbar |
 | 13.11.2026 | Mock-Annahmen: 12,0 V, 25 °C, EEPROM-Schreiben nur ohne Drehmoment, lock nach dem Einschalten 0 (Werkswert V3.7) | nur Simulation, im Code dokumentiert |
 | 13.11.2026 | Phase 0 hat nur eine Wegwerf-Umgebung außerhalb des Repos benutzt | „noch kein Projektcode“ |
+| 13.11.2026 | **`safe_state` bleibt `torque_off`** (Frage 10 erledigt), `hold` je Gerät in `arms.toml` wählbar. Auftraggeber: „in einen Save State versetzen, aber leicht änderbar halten“. *Auslegung von Claude:* „safe state“ = Drehmoment aus. Stimmt das nicht, genügt `safe_state = "hold"` | Der Name `safe_state` und der Wert gehören schon zusammen, eine Umstellung braucht keine Codeänderung |
+| 13.11.2026 | Kalibrierungs-Button in der Web-App mit Anzeige des Pfads der Kalibrierdatei (Auftraggeber) wird in die Web-App aufgenommen. Phase und Umfang: Frage 12 | Wunsch des Auftraggebers |
+| 13.11.2026 | **Skript 05 (ID setzen, nur ID, kein Baudratenwechsel) schon in Phase 3.** Phase 5 ergänzt Assistenten, Protokoll und Baudrate | Phase 3 nennt Skripte 01–07, `change_id` samt Prüfung gab es seit Phase 2 |
+| 13.11.2026 | Skripte nutzen die Optionsnamen auf Deutsch (`--gelenk`, `--wert`, `--dauer`, `--ohne-warten`), sonst gemeinsame Optionen `--device`, `--port`, `--config` aus `script_support.py` | Zielgruppe deutschsprachig, einheitliche Bedienung |
+| 13.11.2026 | Skript 03 bewegt nur **relativ** zur Startposition (±`--delta`, Standard 200 Schritt) und nicht größer als `max_relative_target`. Skript 04 lehnt `torque_enable` und `goal_position` ab (stehen auf der Whitelist, hätten aber wegen `open_arm` keine bleibende Wirkung) und verweist auf Skript 03 | ohne Kalibrierung sind die Grenzen 0…4095. Relative Mini-Bewegung ist ungefährlich |
+| 13.11.2026 | Aufnahmeformat: `recordings/trajectories/<name>.csv` (`t_s` plus Rohwerte je Gelenk) und `<name>.json` (Format-Version, Gerät, `calibration_id`, Kalibrierdatei, Soll- und gemessene Rate). Rohwerte, kein Überschreiben ohne `--ueberschreiben` | funktioniert ohne Kalibrierung, exakte Wiedergabe. Phase 6 baut Bibliothek und Recorder darauf auf |
+| 13.11.2026 | Abspielen: Anfahrt mit smoothstep, mindestens 2 s, mittleres Tempo höchstens 300 Schritt/s; danach nach Zeitstempeln mit `--speed` 0,1…3, jede Zeile durch `move_to` | sanfte Anfahrt war Vorgabe, Zahlenwerte sind vorsichtige Lehrwerte (Frage 13) |
+| 13.11.2026 | Registerbeschreibungen (Einheit, Bedeutung) in `register_info.py` aus V3.7. Tabellen in Kapitel 01 (Gelenke) und 03 (Register) werden per Test (`tests/test_docs.py`) mit dem Code abgeglichen | keine Abschreibfehler |
+| 13.11.2026 | Kapitel 02 beschreibt die Kalibrierung mit `lerobot-calibrate` (Ablage im Repo über `--robot.calibration_dir`). Eine eigene Kalibrierung gibt es noch nicht | Phase 6/Frage 12 |
+| 13.11.2026 | Ungültige Registerwerte beim Schreiben melden `BackendError` statt `ValueError` | einheitliche deutsche Fehlermeldung in Skripten und Web-App |
 
 ---
 
@@ -481,5 +501,8 @@ CLI / Skripte / Web-App
 7. **Raspberry Pi:** Darf die Pi-Anleitung ein vollständiges LeRobot samt torch voraussetzen? Welche Speicherkartengröße und wie viel RAM haben die vorhandenen Geräte mindestens?
 8. **Veröffentlichung:** Wird das Repo öffentlich (GitLab Pages)? Dann müssten die Feetech-PDFs und die XLS-Tabelle unter `firmware/esp32/doku/` auf ihre Weitergabe geprüft oder durch Links ersetzt werden.
 9. **Netzteil- und Motorvarianten:** Platzhalter in Kapitel 01, füllt der Auftraggeber aus (Phase 3).
-10. **safe_state:** Standard „Drehmoment aus“ beim Beenden (Arm sinkt ab) oder „Stellung halten“ (Servos bleiben warm)? Derzeit torque_off wie LeRobot.
+10. ~~safe_state~~ → bleibt `torque_off`, per `arms.toml` umstellbar (siehe Entscheidungslog, Auslegung bitte bestätigen).
 11. **Hardware-Abnahme Phase 2:** Scan fand an `/dev/ttyACM0` keinen Servo. Bitte mit eingeschaltetem Servo-Netzteil wiederholen (Testanleitung).
+12. **Kalibrierung in der Web-App:** Auftraggeber wünscht einen Kalibrierungs-Button mit Anzeige des Dateipfads. Vorschlag von Claude: eine **eigene** Kalibrierung (Mitte → `homing_offset`, Bereich → `range_min/max`, Schreiben über `write_eeprom`, Datei im LeRobot-Format) schon **in Phase 4/5** statt Phase 6 bauen, weil ohne Kalibrierung die Gelenkgrenzen 0…4095 sind und Skripte nur klein und relativ bewegen. Alternative: Web-App ruft `lerobot-calibrate` als Unterprozess auf (der Dialog läuft über `input()`, daher unhandlich, und schreibt beim Verbinden mehr ins EEPROM). Entscheidung offen.
+13. **Lernwerte der Bewegung prüfen:** Anfahrt ≥ 2 s und ≤ 300 Schritt/s (≈ 26°/s), Standard `--delta` 200 Schritt (≈ 18°), Aufnahme 30 Hz. Sind sie für die Hardware passend (Follower mit 12 V)? Erst nach den Hardware-Tests zu beantworten.
+14. **Übung 3 (P-Anteil ändern)** braucht ein EEPROM-Schreiben (`p_coefficient`, Adresse 21). Soll dafür ein eigenes, klar gekennzeichnetes Skript kommen (`write_eeprom` mit Rückfrage), oder wird in der Übung `write_eeprom` direkt im Code aufgerufen? Vorschlag: in Phase 10 entscheiden.
