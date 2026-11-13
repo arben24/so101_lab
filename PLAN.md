@@ -15,14 +15,12 @@ der installierten, gepinnten LeRobot-Version prüfen lässt.
 | | |
 |---|---|
 | Datum | 13.11.2026 |
-| Phase | **3 – Lernskripte und Grundlagen-Doku abgeschlossen**, wartet auf Abnahme am Arm |
-| Nächste Phase | 4 – Web-App-Kern (Modell-Empfehlung: Stark, reines UI-Styling Klein) |
-| Projektcode | wie Phase 2, dazu `register_info.py`, `trajectories.py` (CSV/JSON), `script_support.py`, Skripte `scripts/01…07`, 104 Tests |
-| Doku | Kapitel 00–04 (`docs/index.md`, `01…04`) geschrieben, `mkdocs build --strict` fehlerfrei. **Platzhalter für Netzteil- und Motorvarianten in Kapitel 01 ist noch auszufüllen** (Frage 9) |
+| Phase | **4 – Web-App-Kern, Teilschritt 4a fertig** (Zwischenhalt nach erstem lauffähigen Teilschritt) |
+| Nächster Schritt | 4b: Einzelservo-Panel, Register-Explorer (Whitelist), **Kalibrierungs-Assistent mit Button und Anzeige des Dateipfads** (Auftraggeber, 13.11.2026), Buttons „In der Web-App ausprobieren“ in der Doku. Modell: Stark |
+| Projektcode | Backends `usb`/`mock`, `Arm`, Skripte 01–07, Web-App (`src/so101_lab/web/`: `app.py`, `session.py`, `docs_build.py`, `static/`), 121 Tests |
+| Doku | Kapitel 00–04, Web-App-Abschnitt in 00. Platzhalter für Netzteil- und Motorvarianten in Kapitel 01 noch offen (Frage 9) |
 | Im Repo | `PLAN.md`, `firmware/esp32/` (ESP32-Code, unverändert) |
-| Hardware-Tests | 13.11.2026 (Phase 2): `/dev/ttyACM0` öffnet, Scan läuft fehlerfrei, **aber kein Servo antwortet** (vermutlich Netzteil aus oder kein Arm angesteckt). Lesen und Bewegen am echten Servo sind **noch ungeprüft**, ebenso die Skripte 02–07 |
-
-Phase 2 und 3 warten auf die Abnahme am echten Arm (Testanleitungen im Bericht der jeweiligen Phase).
+| Hardware-Tests | 13.11.2026 (Phase 2): `/dev/ttyACM0` (Adapter SN 5B90103144), kein Servo antwortete. **13.11.2026 (Phase 4, nur lesend, durch Claude):** an `/dev/ttyACM0` (Adapter **SN 5AAF263183**, also ein anderer Adapter) antworten **alle sechs Follower-Servos**, 11,8–12,0 V, 29–32 °C, Drehmoment aus, keine Fehlerbits, noch keine Kalibrierdatei. Web-App-Abfrage hält 30 Hz. Gemessen (100 Wiederholungen): `read_positions` (ein Sync-Read, 6 Servos) Median 1,0 ms, max 1,6 ms; `read_state` (8 Sync-Reads) Median 9,0 ms, max 10,0 ms. **Bewegt wurde nichts**, Skripte 03–07 am echten Arm noch ungeprüft |
 
 ---
 
@@ -36,7 +34,9 @@ Textarbeit, Boilerplate, Styling.
 - [x] **1 – Grundgerüst** (Mittel): uv-Projekt, `pyproject.toml` mit Gruppen, `config/arms.toml`, udev-Regel, CLI `so101-lab` mit `doctor`, ruff/pytest, MkDocs-Gerüst
 - [x] **2 – Backend-Schicht** (Stark): `ArmBackend`, `UsbBackend`, `MockBackend`, Konfigurations-Lader, Sicherheitsfunktionen, Tests
 - [x] **3 – Lernskripte + Grundlagen-Doku** (Mittel, Glättung Klein): Skripte 01–07, Kapitel 00–04
-- [ ] **4 – Web-App-Kern** (Stark, Styling Klein): FastAPI, Statusseite, Not-Aus, Einzelservo, Register-Explorer, WebSocket, Token, Steuer-Sperre, Watchdog. *Nach erstem lauffähigen Teilschritt kurz anhalten.*
+- [ ] **4 – Web-App-Kern** (Stark, Styling Klein): FastAPI, Statusseite, Not-Aus, Einzelservo, Register-Explorer, WebSocket, Token, Steuer-Sperre, Watchdog, **Kalibrierungs-Button** (vorgezogen). *Nach erstem lauffähigen Teilschritt kurz anhalten.*
+  - [x] 4a: Server, Statusseite mit Port-Dropdown, Live-Zustand per WebSocket, Not-Aus, Token, Steuer-Sperre, Watchdog, Doku unter `/docs`
+  - [ ] 4b: Einzelservo-Panel, Register-Explorer, Kalibrierungs-Assistent, Doku-Buttons
 - [ ] **5 – ID-Einrichtungsassistent** (Stark): Assistent in der Web-App, Ein-Servo-Pflicht, Verifikation, Protokoll, Baudrate. Skript 05 (nur ID) gibt es seit Phase 3
 - [ ] **6 – Trajektorien & Kamera** (Mittel, Dataset Stark): Recorder, Bibliothek, Abspielen, Kamera, LeRobot-Dataset, Kalibrierung, Kapitel 05. *Zwischenhalt.*
 - [ ] **7 – Netzwerk / Raspberry Pi** (Stark): `RemoteBackend`, Pi-Anleitung, systemd, API-Referenz, Kapitel 06. *Zwischenhalt.*
@@ -446,7 +446,7 @@ CLI / Skripte / Web-App
 | R6 | ESP32: Arm-Profile laut README ungetestet | Frage 3, in Phase 8 zuerst mit einem einzelnen Servo testen |
 | R7 | Baudraten-Tabelle widersprüchlich | Scan zeigt die Rate an, bei der ein Servo antwortet. Umstellen nur auf 1 Mbit/s |
 | R8 | Leader- und Follower-Servos per Software nicht unterscheidbar | Gerätetyp steht in `config/arms.toml`, Plausibilitätsprüfung über die Busspannung |
-| R9 | Datenrate 30–50 Hz über USB nicht gemessen (in Phase 2 mangels antwortender Servos weiter offen). Mehrere Größen je Zyklus bedeuten mehrere Sync-Reads | in Phase 2 messen, langsame Größen (Temperatur, Spannung) seltener lesen |
+| R9 | ~~Datenrate 30–50 Hz über USB~~ **gemessen 13.11.2026:** Positionen 1,0 ms, voller Zustand 9 ms (6 Servos, 1 Mbit/s) | erledigt. Web-App liest Positionen jede Runde, den vollen Zustand jede 10. Runde |
 | R10 | Offline-Betrieb: LeRobot greift an mehreren Stellen auf den Hugging Face Hub zu | Aufrufe mit lokalen Pfaden kapseln, in Phase 6 ohne Netz testen |
 | R11 | Windows und macOS nur über die Auflösung geprüft | Abnahme durch Testpersonen in Phase 1 und 2 |
 | R12 | Hersteller-PDFs liegen im Repo | Frage 8 |
@@ -487,6 +487,14 @@ CLI / Skripte / Web-App
 | 13.11.2026 | Registerbeschreibungen (Einheit, Bedeutung) in `register_info.py` aus V3.7. Tabellen in Kapitel 01 (Gelenke) und 03 (Register) werden per Test (`tests/test_docs.py`) mit dem Code abgeglichen | keine Abschreibfehler |
 | 13.11.2026 | Kapitel 02 beschreibt die Kalibrierung mit `lerobot-calibrate` (Ablage im Repo über `--robot.calibration_dir`). Eine eigene Kalibrierung gibt es noch nicht | Phase 6/Frage 12 |
 | 13.11.2026 | Ungültige Registerwerte beim Schreiben melden `BackendError` statt `ValueError` | einheitliche deutsche Fehlermeldung in Skripten und Web-App |
+| 13.11.2026 | Offene Fragen 3–14 werden auf später verschoben, **außer dem Kalibrierungs-Button: kommt mit dem Web-App-Kern (Phase 4)** (Auftraggeber) | |
+| 13.11.2026 | Neue Abhängigkeiten: `fastapi`, `uvicorn` (ohne `[standard]`), `websockets`; `httpx` nur in `dev` (TestClient). Versionen: fastapi 0.162.6, starlette 1.10.0, uvicorn 0.54.0, websockets 17.4. Starlette 1.x: Lifespan statt `on_startup` | schlank, kein Node, alles lokal |
+| 13.11.2026 | Web-API: REST für Aktionen (`/api/…`), ein WebSocket `/ws` sendet 20× je Sekunde den Zustand aller Geräte und empfängt Heartbeats. Jeder WebSocket bekommt eine `client_id`; bewegende Aktionen tragen sie im JSON | dieselbe API kann später das `RemoteBackend` (Phase 7) benutzen |
+| 13.11.2026 | Steuerrecht je Gerät, nur für Clients mit offenem WebSocket. Übernahme nur mit `force`. Beim Übernehmen werden Räder gestoppt. **Abgabe, Watchdog und Schließen des WebSockets führen zu `safe_shutdown`** (Räder stopp, dann `safe_state`). Not-Aus darf jeder (mit Token), unabhängig vom Steuerrecht, ignoriert `safe_state` | Vorgabe 5.2 und 8 |
+| 13.11.2026 | Watchdog Standard **400 ms** (`--watchdog-ms`, 100–2000), Browser-Heartbeat alle 100 ms. Ein Tab im Hintergrund kann wegen Timer-Drosselung den Watchdog auslösen; das gilt als gewollt | Vorgabe 300–500 ms |
+| 13.11.2026 | Token aus `--token` oder Umgebungsvariable `SO101_LAB_TOKEN`, **nicht** in `arms.toml` (die Datei liegt im Git). Pflicht, wenn `--host` nicht localhost ist, sonst Start abgelehnt. Seiten (HTML/JS/Doku) ohne Token, alle `/api/…` und `/ws` mit Token (`Authorization: Bearer` oder `?token=`), Vergleich mit `secrets.compare_digest` | Geheimnis nicht im Repo |
+| 13.11.2026 | Doku wird beim Start von `so101-lab web` nach `site/` gebaut und unter `/docs/` eingebunden (`--no-docs` schaltet ab, ohne MkDocs läuft die App ohne Doku) | ein Befehl für Labor und Doku |
+| 13.11.2026 | Esc-Taste löst im Browser den Not-Aus aus | schneller als die Maus |
 
 ---
 
@@ -502,7 +510,7 @@ CLI / Skripte / Web-App
 8. **Veröffentlichung:** Wird das Repo öffentlich (GitLab Pages)? Dann müssten die Feetech-PDFs und die XLS-Tabelle unter `firmware/esp32/doku/` auf ihre Weitergabe geprüft oder durch Links ersetzt werden.
 9. **Netzteil- und Motorvarianten:** Platzhalter in Kapitel 01, füllt der Auftraggeber aus (Phase 3).
 10. ~~safe_state~~ → bleibt `torque_off`, per `arms.toml` umstellbar (siehe Entscheidungslog, Auslegung bitte bestätigen).
-11. **Hardware-Abnahme Phase 2:** Scan fand an `/dev/ttyACM0` keinen Servo. Bitte mit eingeschaltetem Servo-Netzteil wiederholen (Testanleitung).
-12. **Kalibrierung in der Web-App:** Auftraggeber wünscht einen Kalibrierungs-Button mit Anzeige des Dateipfads. Vorschlag von Claude: eine **eigene** Kalibrierung (Mitte → `homing_offset`, Bereich → `range_min/max`, Schreiben über `write_eeprom`, Datei im LeRobot-Format) schon **in Phase 4/5** statt Phase 6 bauen, weil ohne Kalibrierung die Gelenkgrenzen 0…4095 sind und Skripte nur klein und relativ bewegen. Alternative: Web-App ruft `lerobot-calibrate` als Unterprozess auf (der Dialog läuft über `input()`, daher unhandlich, und schreibt beim Verbinden mehr ins EEPROM). Entscheidung offen.
+11. ~~Hardware-Abnahme Phase 2~~ → teilweise erledigt: alle sechs Servos antworten (Stand-Zeile). Bewegen am echten Arm steht noch aus.
+12. **Kalibrierung in der Web-App** → kommt in Teilschritt 4b (Auftraggeber). Offen ist nur noch der Weg: Auftraggeber wünscht einen Kalibrierungs-Button mit Anzeige des Dateipfads. Vorschlag von Claude: eine **eigene** Kalibrierung (Mitte → `homing_offset`, Bereich → `range_min/max`, Schreiben über `write_eeprom`, Datei im LeRobot-Format) schon **in Phase 4/5** statt Phase 6 bauen, weil ohne Kalibrierung die Gelenkgrenzen 0…4095 sind und Skripte nur klein und relativ bewegen. Alternative: Web-App ruft `lerobot-calibrate` als Unterprozess auf (der Dialog läuft über `input()`, daher unhandlich, und schreibt beim Verbinden mehr ins EEPROM). Entscheidung offen.
 13. **Lernwerte der Bewegung prüfen:** Anfahrt ≥ 2 s und ≤ 300 Schritt/s (≈ 26°/s), Standard `--delta` 200 Schritt (≈ 18°), Aufnahme 30 Hz. Sind sie für die Hardware passend (Follower mit 12 V)? Erst nach den Hardware-Tests zu beantworten.
 14. **Übung 3 (P-Anteil ändern)** braucht ein EEPROM-Schreiben (`p_coefficient`, Adresse 21). Soll dafür ein eigenes, klar gekennzeichnetes Skript kommen (`write_eeprom` mit Rückfrage), oder wird in der Übung `write_eeprom` direkt im Code aufgerufen? Vorschlag: in Phase 10 entscheiden.
