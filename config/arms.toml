@@ -8,13 +8,20 @@
 #   remote  Arm hängt an einem anderen Rechner, z. B. Raspberry Pi (address, token)
 #   esp32   Arm hängt an einem ESP32-Funkknoten (address)
 #   mock    simulierte Motoren, keine Hardware nötig
+# port:    nur für usb. Darf fehlen: Dann wird der Port beim Start gewählt (Liste aus
+#          `so101-lab ports`, später Auswahlliste in der Web-App). Feste Namen über
+#          udev-Regeln sind bewusst noch nicht vorgesehen.
 # calibration_id: Name der Kalibrierdatei (siehe calibration/ und LeRobot --robot.id)
+# safe_state: torque_off (Standard) oder hold – was beim Beenden/bei Fehlern passiert
+# Bewegungsgrenzen (optional): max_velocity (Schritt/s, Standard 1000),
+#   acceleration (×100 Schritt/s², Standard 20), max_relative_target (Schritt, Standard 400),
+#   max_wheel_velocity (Schritt/s, Standard 3000)
 
 [[device]]
 name = "follower"
 type = "so101_follower"
 backend = "usb"
-port = "/dev/ttyACM0"          # Windows: "COM3", macOS: "/dev/tty.usbmodem..."
+# port = "/dev/ttyACM0"        # Windows: "COM3", macOS: "/dev/cu.usbmodem..."
 calibration_id = "follower_1"
 cameras = []
 

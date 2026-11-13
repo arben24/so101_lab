@@ -7,24 +7,20 @@ sendet also nichts an die Servos.
 from __future__ import annotations
 
 import glob
-import grp
 import importlib.metadata as md
 import os
 import platform
 import shutil
 import sys
-import tomllib
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 from . import LEROBOT_PINNED_VERSION
+from .ports import list_serial_ports
 
 OK, WARN, FAIL, INFO = "ok", "warn", "fail", "info"
 SYMBOLS = {OK: "[ OK ]", WARN: "[WARN]", FAIL: "[FEHL]", INFO: "[ .. ]"}
-
-# USB-Kennungen bekannter Servo-Adapter (siehe config/99-so101.rules)
-KNOWN_ADAPTERS = {(0x1A86, 0x55D3): "QinHeng USB Single Serial"}
 
 
 @dataclass
@@ -93,55 +89,39 @@ def check_compiler() -> list[Result]:
     ]
 
 
-def list_serial_ports() -> list[tuple[str, int | None, int | None, str]]:
-    """Alle seriellen Ports als (Gerät, vid, pid, Beschreibung)."""
-    from serial.tools import list_ports
-
-    ports = []
-    for p in list_ports.comports():
-        if sys.platform == "linux" and p.device.startswith("/dev/ttyS"):
-            continue  # fest eingebaute Schnittstellen, nie ein Servo-Adapter
-        ports.append((p.device, p.vid, p.pid, p.description or ""))
-    return sorted(ports)
-
-
 def check_ports() -> list[Result]:
     try:
         ports = list_serial_ports()
     except Exception as exc:  # pyserial fehlt oder Plattformproblem
         return [Result(FAIL, f"Portsuche fehlgeschlagen: {exc}")]
     if not ports:
-        return [
-            Result(WARN, "Kein serieller Port gefunden", "Adapter anstecken, Servo-Netzteil einschalten.")
-        ]
+        return [Result(WARN, "Kein USB-Seriell-Port gefunden", "Adapter anstecken.")]
     results = []
-    for device, vid, pid, desc in ports:
-        known = KNOWN_ADAPTERS.get((vid, pid)) if vid is not None and pid is not None else None
-        ident = f"{vid:04x}:{pid:04x}" if vid is not None and pid is not None else "ohne USB-ID"
-        label = f"{device} ({ident}, {known or desc})"
-        if sys.platform in ("linux", "darwin") and not os.access(device, os.R_OK | os.W_OK):
-            results.append(Result(FAIL, f"{label}: keine Zugriffsrechte", _permission_hint(device)))
+    for p in ports:
+        if sys.platform in ("linux", "darwin") and not os.access(p.device, os.R_OK | os.W_OK):
+            results.append(Result(FAIL, f"{p.label}: keine Zugriffsrechte", _permission_hint(p.device)))
         else:
-            results.append(Result(OK if known else INFO, label))
+            results.append(Result(OK if p.known_adapter else INFO, p.label))
     return results
 
 
 def _permission_hint(device: str) -> str:
     if sys.platform != "linux":
         return "Zugriffsrechte für den Port prüfen."
+    import grp
+
     try:
         group = grp.getgrgid(os.stat(device).st_gid).gr_name
     except (KeyError, OSError):
         group = "dialout"
-    return (
-        f"Entweder udev-Regel installieren (config/99-so101.rules, siehe Kapitel 02) "
-        f"oder 'sudo usermod -aG {group} $USER' und neu anmelden."
-    )
+    return f"'sudo usermod -aG {group} $USER' ausführen und neu anmelden."
 
 
 def check_linux_groups() -> list[Result]:
     if sys.platform != "linux":
         return []
+    import grp
+
     try:
         names = {grp.getgrgid(g).gr_name for g in os.getgroups()}
     except KeyError:
@@ -152,21 +132,7 @@ def check_linux_groups() -> list[Result]:
         Result(
             INFO,
             "Benutzer ist nicht in der Gruppe 'dialout'",
-            "Kein Problem, wenn die udev-Regel installiert ist.",
-        )
-    ]
-
-
-def check_udev_rule() -> list[Result]:
-    if sys.platform != "linux":
-        return []
-    if Path("/etc/udev/rules.d/99-so101.rules").exists():
-        return [Result(OK, "udev-Regel 99-so101.rules ist installiert")]
-    return [
-        Result(
-            INFO,
-            "udev-Regel 99-so101.rules ist nicht installiert",
-            "Siehe Kapitel 02 und config/99-so101.rules.",
+            "Nur nötig, falls ein Port 'keine Zugriffsrechte' meldet.",
         )
     ]
 
@@ -188,15 +154,18 @@ def check_cameras() -> list[Result]:
 
 
 def check_config(config_path: str | None) -> list[Result]:
-    path = Path(config_path) if config_path else Path("config/arms.toml")
+    from .config import ConfigError, load_config
+    from .paths import default_config_path
+
+    path = Path(config_path) if config_path else default_config_path()
     if not path.exists():
         return [Result(WARN, f"{path} nicht gefunden", "Im Projektordner ausführen oder --config angeben.")]
     try:
-        data = tomllib.loads(path.read_text(encoding="utf-8"))
-    except tomllib.TOMLDecodeError as exc:
-        return [Result(FAIL, f"{path} ist kein gültiges TOML: {exc}")]
-    devices = data.get("device", [])
-    return [Result(OK, f"{path}: {len(devices)} Gerät(e) konfiguriert")]
+        cfg = load_config(path)
+    except ConfigError as exc:
+        return [Result(FAIL, str(exc))]
+    names = ", ".join(f"{d.name} ({d.type}, {d.backend})" for d in cfg.devices.values())
+    return [Result(OK, f"{path}: {names or 'keine Geräte'}")]
 
 
 CHECKS: list[tuple[str, Callable[..., list[Result]]]] = [
@@ -206,7 +175,6 @@ CHECKS: list[tuple[str, Callable[..., list[Result]]]] = [
     ("", check_compiler),
     ("Serielle Ports", check_ports),
     ("", check_linux_groups),
-    ("", check_udev_rule),
     ("Kameras", check_cameras),
 ]
 
