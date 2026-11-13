@@ -151,7 +151,53 @@ sich ein Gelenk bewegen darf, hängt vom Zusammenbau ab. Die **Kalibrierung** h�
 Ohne Kalibrierung gilt der volle Bereich 0 bis 4095. Dann **kann ein Ziel gegen einen mechanischen
 Anschlag fahren**. Deshalb: erst kalibrieren, dann bewegen.
 
-Aufruf (ein Gerät je Aufruf, Follower **oder** Leader):
+### In der Web-App (empfohlen)
+
+<a class="lab-link" href="../index.html#kalibrierung">In der Web-App ausprobieren</a>
+
+1. `uv run so101-lab web`, im Browser das Gerät wählen, Port wählen, **Verbinden**.
+2. **Steuerung übernehmen**, Reiter **Kalibrierung**. Oben steht, welche Datei es schon gibt und
+   **wohin die neue Datei geschrieben wird**.
+3. **Kalibrierung starten:** Das Drehmoment aller Gelenke geht aus, **den Arm festhalten**. Die bisherigen
+   Werte in den Servos werden gemerkt.
+4. Alle Gelenke von Hand in die **Mitte ihres Bewegungsbereichs** stellen (Skizze auf der Seite:
+   Oberarm senkrecht, Unterarm waagerecht, Handgelenk gerade), dann **Mitte übernehmen**. Der Homing-Offset
+   wird so ins EEPROM geschrieben, dass diese Stellung den Wert 2047 ergibt.
+5. Jedes Gelenk nacheinander langsam **bis zu beiden Anschlägen** bewegen. Die Tabelle zeigt live Minimum,
+   Istwert und Maximum. `wrist_roll` dreht ganz und bekommt automatisch 0 bis 4095.
+6. **Speichern:** Die Grenzen werden ins EEPROM geschrieben (jeweils zurückgelesen und geprüft), die Datei
+   wird gespeichert und die Grenzen gelten sofort. Eine vorhandene Datei bleibt als `.json.bak` erhalten.
+
+**Abbrechen** schreibt die alten Werte in die Servos zurück. Dasselbe passiert automatisch, wenn der Tab
+geschlossen wird, der Watchdog anspricht oder jemand den Not-Aus drückt. So passen Servos und alte
+Kalibrierdatei immer zusammen. Ein Gelenk, das nicht bewegt wurde, verhindert das Speichern.
+
+Die Web-App schreibt dabei **nur** Homing-Offset und Positionsgrenzen, sonst nichts. Das Ergebnis ist
+dasselbe wie bei `lerobot-calibrate` (gleiche Rechnung, gleiches Dateiformat). Für die LeKiwi werden nur
+die Arm-Gelenke von Hand abgefahren, die Räder bekommen wie bei LeRobot Offset 0 und den vollen Bereich.
+
+### Ablage und Format
+
+Das Ergebnis liegt als JSON-Datei in `calibration/robots/so_follower/follower_1.json` (bzw. unter
+`teleoperators/so_leader/` für den Leader und `robots/lekiwi/` für die LeKiwi). Der Dateiname ist die
+`calibration_id` aus `arms.toml`. Die Ablage im Repo entspricht der Struktur von LeRobot, deshalb nutzen
+LeRobot-Werkzeuge dieselbe Datei, wenn man ihnen `--robot.calibration_dir` mitgibt.
+
+Format (ein Eintrag je Motor):
+
+```json
+{
+    "shoulder_pan": {"id": 1, "drive_mode": 0, "homing_offset": -123, "range_min": 800, "range_max": 3200}
+}
+```
+
+Die Software findet die Kalibrierung selbst: zuerst unter `calibration/…` im Repo, dann in der
+Standardablage von LeRobot (`~/.cache/huggingface/lerobot/calibration/…`). Ob eine gefunden wurde, zeigt
+`so101-lab state follower` in der ersten Zeile und die Web-App unter „Kalibrierung“.
+
+### Dasselbe mit LeRobot
+
+Ein Gerät je Aufruf, Follower **oder** Leader:
 
 ```bash
 # Follower
@@ -163,39 +209,14 @@ uv run lerobot-calibrate --teleop.type=so101_leader --teleop.port=/dev/ttyACM0 \
     --teleop.id=leader_1 --teleop.calibration_dir=calibration/teleoperators/so_leader
 ```
 
-Der Dialog führt in zwei Schritten:
+Der Dialog im Terminal hat dieselben zwei Schritte (Mitte, Enter; Bereich abfahren, Enter).
 
-1. Alle Gelenke von Hand in die **Mitte ihres Bewegungsbereichs** stellen, Enter.
-2. Jedes Gelenk nacheinander **durch den ganzen Bereich** bewegen (Minimum und Maximum werden
-   aufgezeichnet), Enter. `wrist_roll` ist ein Volldreher und bekommt 0 bis 4095.
-
-Das Ergebnis liegt als JSON-Datei in `calibration/robots/so_follower/follower_1.json` (bzw. unter
-`teleoperators/so_leader/`). Der Dateiname ist die `calibration_id` aus `arms.toml`. Die Ablage im
-Repo entspricht der Struktur von LeRobot, deshalb nutzen LeRobot-Werkzeuge dieselbe Datei, wenn man
-ihnen `--robot.calibration_dir` mitgibt.
-
-Format (ein Eintrag je Motor):
-
-```json
-{
-    "shoulder_pan": {"id": 1, "drive_mode": 0, "homing_offset": -123, "range_min": 800, "range_max": 3200}
-}
-```
-
-!!! warning "Was LeRobot dabei in die Servos schreibt"
-    `lerobot-calibrate` **schreibt ins EEPROM der Servos**: den Homing-Offset und die Positionsgrenzen
-    (`min_position_limit`, `max_position_limit`). Außerdem schreibt LeRobot bei **jedem** Verbinden
-    Regelparameter (P 16, I 0, D 32, Beschleunigung, Betriebsart `position`; am Greifer zusätzlich
-    Drehmoment- und Stromgrenzen) dauerhaft in alle Servos. Das ist bei LeRobot so vorgesehen, aber
-    nicht offensichtlich. Die Lernskripte dieses Repos schreiben beim Verbinden **nichts**.
-
-Die Software findet die Kalibrierung selbst: zuerst unter `calibration/…` im Repo, dann in der
-Standardablage von LeRobot (`~/.cache/huggingface/lerobot/calibration/…`). Ob eine gefunden wurde, zeigt
-`so101-lab state follower` in der ersten Zeile.
-
-!!! note "Geplant: Kalibrieren in der Web-App"
-    Für die Web-App ist ein Kalibrierungs-Assistent vorgesehen, der durch die Schritte führt und den
-    Pfad der gespeicherten Datei anzeigt. Bis dahin gilt der Aufruf oben.
+!!! warning "Was LeRobot dabei zusätzlich in die Servos schreibt"
+    `lerobot-calibrate` schreibt wie die Web-App Homing-Offset und Positionsgrenzen ins EEPROM. Außerdem
+    schreibt LeRobot bei **jedem** Verbinden Regelparameter (P 16, I 0, D 32, Beschleunigung, Betriebsart
+    `position`; am Greifer zusätzlich Drehmoment- und Stromgrenzen) dauerhaft in alle Servos. Das ist bei
+    LeRobot so vorgesehen, aber nicht offensichtlich. Die Lernskripte und die Web-App dieses Repos
+    schreiben beim Verbinden **nichts**.
 
 ## 6. Prüfen
 

@@ -5,7 +5,11 @@ liegt an einer festen **Adresse**. „Position fahren“, „Temperatur lesen“
 anderes als Lesen und Schreiben an bestimmten Adressen. Dieses Kapitel erklärt diese Speichertabelle.
 
 Praxis dazu: `uv run scripts/02_read_servo.py` zeigt alle Register eines Servos, `04_write_param.py`
-schreibt freigegebene RAM-Register.
+schreibt freigegebene RAM-Register. In der Web-App zeigt der Reiter **Register** dasselbe für jedes Gelenk
+und der Reiter **Einzelservo** die Live-Werte samt Schieberegler.
+
+<a class="lab-link" href="../index.html#register">Register-Explorer in der Web-App</a>
+<a class="lab-link" href="../index.html#servo">Einzelservo in der Web-App</a>
 
 ## Register
 
@@ -143,7 +147,7 @@ Die Register liegen in zwei Speicherbereichen:
 | Nach dem Ausschalten | **bleibt erhalten** | **weg**, Startwerte gelten wieder |
 | Gefahr | Falsche Werte wirken dauerhaft | Folgen verschwinden beim Neustart |
 
-Das ist der Grund für die **Whitelist** in Skript 04: Nur RAM-Register sind freigegeben
+Das ist der Grund für die **Whitelist** in Skript 04 und im Register-Explorer der Web-App: Nur RAM-Register sind freigegeben
 (`torque_enable`, `acceleration`, `goal_position`, `goal_velocity`, `torque_limit`). Alles im EEPROM geht
 ausschließlich durch eigene, klar benannte Funktionen, die danach **zurücklesen und vergleichen**:
 
@@ -152,6 +156,11 @@ ausschließlich durch eigene, klar benannte Funktionen, die danach **zurücklese
 | `write_eeprom(id, register, wert)` | beliebiges EEPROM-Register schreiben und prüfen |
 | `change_id(alt, neu)` | ID ändern, Ping unter der neuen ID, alte ID muss frei sein |
 | `change_baudrate(id, baudrate)` | Baudrate ändern, Port nachziehen, Ping |
+
+Im **Register-Explorer** der Web-App lassen sich EEPROM-Register nur im Expertenmodus und nach einer
+Rückfrage schreiben, danach wird zurückgelesen. Gesperrt bleiben dort ID und Baudrate (eigener Ablauf mit
+genau einem Servo am Bus) sowie Homing-Offset und Positionsgrenzen (gehören zur Kalibrierung, sonst passen
+Servo und Kalibrierdatei nicht mehr zusammen).
 
 ### Die Schreibsperre (`lock`)
 

@@ -66,8 +66,18 @@ Temperatur, Strom, Drehmoment und Fehler. Diese Doku ist unter `/docs/` eingebun
 - **Im Netzwerk** (z. B. auf einem Raspberry Pi): `so101-lab web --host 0.0.0.0 --token <geheim>`.
   Ohne Token startet der Server dann nicht. Im Browser `http://<adresse>:8000/?token=<geheim>` öffnen.
 
-Einzelservo-Panel, Register-Explorer, Kalibrierung, Servo-Einrichtung und Recorder kommen in den
-nächsten Ausbaustufen dazu.
+Reiter der Web-App:
+
+| Reiter | Was |
+|---|---|
+| Status | alle Gelenke live, Meldungen |
+| Einzelservo | ein Gelenk: Live-Werte, Tempo- und Beschleunigungsgrenze, Schieberegler, Drehmoment |
+| Register | alle Register eines Servos lesen, freigegebene schreiben (EEPROM nur mit Bestätigung) |
+| Kalibrierung | geführte Kalibrierung mit Anzeige, wo die Datei gespeichert wird |
+
+Servo-Einrichtung (IDs) und Recorder kommen in den nächsten Ausbaustufen dazu.
+
+<a class="lab-link" href="../index.html#status">Web-App öffnen</a>
 
 ## Die Lernskripte
 

@@ -1,0 +1,16 @@
+/* Schaltfläche „In der Web-App ausprobieren“ */
+.md-typeset a.lab-link {
+  display: inline-block;
+  padding: 0.3em 0.9em;
+  border: 1px solid var(--md-accent-fg-color, #526cfe);
+  border-radius: 4px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.md-typeset a.lab-link::before { content: "▶ "; }
+.md-typeset a.lab-link.lab-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+.md-typeset a.lab-link .lab-note { font-weight: 400; font-size: 0.85em; }

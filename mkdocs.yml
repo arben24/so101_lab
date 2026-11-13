@@ -38,5 +38,10 @@ nav:
   - Übungen: uebungen.md
   - Anhang: anhang.md
 
+extra_javascript:
+  - javascripts/lab.js      # Schaltflächen „In der Web-App ausprobieren“
+extra_css:
+  - stylesheets/lab.css
+
 extra:
   generator: false          # kein Link zu externer Seite im Fuß
