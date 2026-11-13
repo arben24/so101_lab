@@ -22,17 +22,32 @@ def test_parser_requires_command():
         build_parser().parse_args([])
 
 
-@pytest.mark.parametrize("command", ["scan", "web"])
-def test_unimplemented_commands_exit_with_2(command, capsys):
-    assert main([command]) == 2
+def test_web_not_yet(capsys):
+    assert main(["web"]) == 2
     assert "noch nicht umgesetzt" in capsys.readouterr().err
+
+
+def test_scan_and_state_with_mock_device(capsys):
+    config = str(ROOT / "config" / "arms.toml")
+    assert main(["scan", "--device", "demo", "--config", config]) == 0
+    assert "STS3215" in capsys.readouterr().out
+    assert main(["state", "demo", "--config", config]) == 0
+    assert "shoulder_pan" in capsys.readouterr().out
+
+
+def test_choose_port_without_ports(monkeypatch):
+    from so101_lab import cli, ports
+
+    monkeypatch.setattr(ports, "list_serial_ports", lambda usb_only=True: [])
+    with pytest.raises(cli.CliError):
+        cli.choose_port(None, interactive=False)
 
 
 def test_doctor_runs_without_ports(monkeypatch, capsys):
     monkeypatch.setattr(doctor, "list_serial_ports", lambda: [])
     code = main(["doctor", "--config", str(ROOT / "config" / "arms.toml")])
     out = capsys.readouterr().out
-    assert "Kein serieller Port gefunden" in out
+    assert "Kein USB-Seriell-Port gefunden" in out
     assert code == 0  # fehlender Port ist eine Warnung, kein Fehler
 
 
