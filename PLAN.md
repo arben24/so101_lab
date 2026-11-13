@@ -476,7 +476,7 @@ CLI / Skripte / Web-App
 2. ~~Repo-Wurzel~~ → bleibt (entschieden).
 3. **ESP32-Teststand:** Wurde ein SO-101-Arm (Profil `so101`) schon über den ESP32 bewegt? Das README sagt nein.
 4. **ESP32-Transport:** Reicht für `Esp32Backend` zunächst UDP über WLAN? Das Gateway (ESP-NOW über USB) ist laut README ungetestet. Vorschlag: UDP zuerst, Gateway als spätere Ergänzung.
-5. ~~USB-Adapter~~ → 1a86:55d3 (siehe Entscheidungslog). Offen: Ist das der Adapter am Follower und am Leader, oder nur an einem? Wird ein zweiter Arm gleichzeitig angeschlossen, brauchen die Regeln stabile Namen über die Seriennummer.
+5. ~~USB-Adapter~~ → 1a86:55d3 (siehe Entscheidungslog). Ports werden vom Nutzer gewählt (keine udev-Regeln). Bei zwei Armen hilft die Seriennummer in der Portliste beim Unterscheiden (dieser Adapter: SN 5B90103144).
 6. ~~torch-Variante~~ → CPU als Standard, CUDA optional (entschieden).
 7. **Raspberry Pi:** Darf die Pi-Anleitung ein vollständiges LeRobot samt torch voraussetzen? Welche Speicherkartengröße und wie viel RAM haben die vorhandenen Geräte mindestens?
 8. **Veröffentlichung:** Wird das Repo öffentlich (GitLab Pages)? Dann müssten die Feetech-PDFs und die XLS-Tabelle unter `firmware/esp32/doku/` auf ihre Weitergabe geprüft oder durch Links ersetzt werden.
