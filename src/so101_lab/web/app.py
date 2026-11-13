@@ -160,6 +160,23 @@ class ControlRequest(ClientRequest):
 
 class TorqueRequest(ClientRequest):
     enabled: bool
+    joints: list[str] | None = None  # None = alle Gelenke
+
+
+class MotionRequest(ClientRequest):
+    velocity: int  # Schritt/s
+    acceleration: int  # 100 Schritt/s²
+
+
+class MoveRequest(ClientRequest):
+    targets: dict[str, int]  # Gelenkname → Rohwert
+
+
+class RegisterWriteRequest(ClientRequest):
+    joint: str
+    register_name: str
+    value: int
+    confirm_eeprom: bool = False
 
 
 # ------------------------------------------------------------------ App
@@ -260,8 +277,47 @@ def create_app(server: LabServer, docs_dir: Path | None = None) -> FastAPI:
 
     @app.post("/api/devices/{name}/torque", dependencies=[Depends(auth)])
     def torque(name: str, body: TorqueRequest) -> dict[str, Any]:
-        server.session(name).set_torque(server.require_client(body.client_id), body.enabled)
+        server.session(name).set_torque(server.require_client(body.client_id), body.enabled, body.joints)
         return {"torque": body.enabled}
+
+    @app.post("/api/devices/{name}/motion", dependencies=[Depends(auth)])
+    def motion(name: str, body: MotionRequest) -> dict[str, int]:
+        client = server.require_client(body.client_id)
+        return server.session(name).set_motion(client, body.velocity, body.acceleration)
+
+    @app.post("/api/devices/{name}/move", dependencies=[Depends(auth)])
+    def move(name: str, body: MoveRequest) -> dict[str, Any]:
+        sent = server.session(name).move(server.require_client(body.client_id), body.targets)
+        return {"sent": sent}
+
+    # --- Register-Explorer ----------------------------------------------------------
+
+    @app.get("/api/devices/{name}/registers/{joint}", dependencies=[Depends(auth)])
+    def read_registers(name: str, joint: str) -> list[dict[str, Any]]:
+        return server.session(name).read_registers(joint)
+
+    @app.post("/api/devices/{name}/registers", dependencies=[Depends(auth)])
+    def write_register(name: str, body: RegisterWriteRequest) -> dict[str, Any]:
+        client = server.require_client(body.client_id)
+        value = server.session(name).write_register(
+            client, body.joint, body.register_name, body.value, confirm_eeprom=body.confirm_eeprom
+        )
+        return {"register": body.register_name, "value": value}
+
+    # --- Kalibrierung -----------------------------------------------------------------
+
+    @app.post("/api/devices/{name}/calibration/{step}", dependencies=[Depends(auth)])
+    def calibration(name: str, step: str, body: ClientRequest) -> dict[str, Any] | None:
+        session = server.session(name)
+        steps = {
+            "start": session.calibration_start,
+            "middle": session.calibration_middle,
+            "finish": session.calibration_finish,
+            "cancel": session.calibration_cancel,
+        }
+        if step not in steps:
+            raise HTTPException(404, f"Unbekannter Kalibrierschritt '{step}'.")
+        return steps[step](server.require_client(body.client_id))
 
     @app.post("/api/estop", dependencies=[Depends(auth)])
     def estop() -> dict[str, Any]:

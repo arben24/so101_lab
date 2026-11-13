@@ -13,6 +13,10 @@ Hier liegen die Regeln für den Betrieb über den Browser:
   (Räder stopp, dann `safe_state` aus arms.toml). Dasselbe passiert, wenn er die Verbindung
   schließt oder das Steuerrecht abgibt.
 - **Not-Aus** darf jeder auslösen: Räder stopp, Torque aus für jeden Motor, Steuerrecht weg.
+- **Kalibrierung** läuft schrittweise (`calibrate.CalibrationRun`). Verliert der Client das
+  Steuerrecht mittendrin, werden die alten EEPROM-Werte zurückgeschrieben.
+- **Register schreiben:** RAM nur aus der Whitelist, EEPROM nur mit ausdrücklicher Bestätigung
+  und nie ID, Baudrate oder die Kalibrierwerte (dafür gibt es eigene Abläufe).
 """
 
 from __future__ import annotations
@@ -26,11 +30,28 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from typing import Any, TypeVar
 
+from .. import registers as regs
 from ..arm import Arm
 from ..backends.base import BackendError, ServoState
-from ..devices.spec import JointMode, NormMode
+from ..calibrate import CalibrationRun, Stage, target_path
+from ..devices.spec import Joint, JointMode, NormMode
+from ..register_info import info
+from ..safety import write_ram_register
 
 logger = logging.getLogger(__name__)
+
+# Register, die im Register-Explorer nicht direkt geschrieben werden, mit Begründung
+EEPROM_LOCKED = {
+    "id": "ID nur mit dem Einrichtungsassistenten bzw. Skript 05 ändern (genau ein Servo am Bus).",
+    "baud_rate": "Baudrate nur mit dem Einrichtungsassistenten ändern, sonst ist der Servo unerreichbar.",
+    "homing_offset": "Gehört zur Kalibrierung: über den Reiter „Kalibrierung“ ändern.",
+    "min_position_limit": "Gehört zur Kalibrierung: über den Reiter „Kalibrierung“ ändern.",
+    "max_position_limit": "Gehört zur Kalibrierung: über den Reiter „Kalibrierung“ ändern.",
+}
+VIA_PANEL = {
+    "torque_enable": "Über „Drehmoment an/aus“: setzt vorher das Ziel auf die Istposition.",
+    "goal_position": "Über den Schieberegler im Reiter „Einzelservo“: begrenzt auf Gelenkgrenzen.",
+}
 
 T = TypeVar("T")
 
@@ -85,6 +106,8 @@ class DeviceSession:
         self._thread: threading.Thread | None = None
         self._cycle_hz = 0.0
         self._error: str | None = None
+        self.calibration_run: CalibrationRun | None = None
+        self.motion = {"velocity": arm.cfg.max_velocity, "acceleration": arm.cfg.acceleration}
 
     # ------------------------------------------------------------ Start und Ende
 
@@ -111,6 +134,7 @@ class DeviceSession:
             self._thread.join(timeout=2.0)
         with self._control_lock:
             self.controller = None
+        self._abort_calibration("Verbindung getrennt")
         with self.bus_lock:
             try:
                 self.arm.safe_shutdown()
@@ -190,14 +214,187 @@ class DeviceSession:
         self._refresh_slow = True
         return result
 
-    def set_torque(self, client_id: str | None, enabled: bool) -> None:
+    def joint(self, name: str) -> Joint:
+        if name not in self.present:
+            raise BackendError(f"Gelenk '{name}' gibt es nicht oder es antwortet nicht.")
+        return self.arm.spec.joint(name)
+
+    def _require_free(self, client_id: str | None) -> None:
+        """Steuerrecht nötig, und keine Kalibrierung darf gerade laufen."""
         self.require_control(client_id)
+        run = self.calibration_run
+        if run is not None and run.stage in (Stage.MIDDLE, Stage.RANGE):
+            raise ControlError("Die Kalibrierung läuft. Erst speichern oder abbrechen.")
+
+    def set_torque(self, client_id: str | None, enabled: bool, joints: list[str] | None = None) -> None:
         if enabled:
-            self.run(lambda arm: arm.enable_torque(self.present))  # Ziel = Istposition, kein Sprung
-            self.event("info", "Drehmoment an.")
+            self._require_free(client_id)
         else:
-            self.run(lambda arm: arm.disable_torque(self.present))
-            self.event("info", "Drehmoment aus.")
+            self.require_control(client_id)  # Ausschalten geht immer, auch beim Kalibrieren
+        names = [self.joint(n).name for n in joints] if joints else list(self.present)
+        which = "alle Gelenke" if not joints else ", ".join(names)
+        if enabled:
+            self.run(lambda arm: arm.enable_torque(names))  # Ziel = Istposition, kein Sprung
+            self.event("info", f"Drehmoment an ({which}).")
+        else:
+            self.run(lambda arm: arm.disable_torque(names))
+            self.event("info", f"Drehmoment aus ({which}).")
+
+    def set_motion(self, client_id: str | None, velocity: int, acceleration: int) -> dict[str, int]:
+        """Tempo- und Beschleunigungsgrenze setzen (gilt für alle Gelenke, bis zur nächsten Änderung)."""
+        self._require_free(client_id)
+        self.run(lambda arm: arm.configure_motion(max_velocity=velocity, acceleration=acceleration))
+        self.motion = {
+            "velocity": max(1, min(3400, velocity)),
+            "acceleration": max(1, min(254, acceleration)),
+        }
+        self.event(
+            "info",
+            f"Bewegungsgrenzen: {self.motion['velocity']} Schritt/s, Beschleunigung "
+            f"{self.motion['acceleration']} × 100 Schritt/s².",
+        )
+        return dict(self.motion)
+
+    def move(self, client_id: str | None, targets: dict[str, int]) -> dict[str, int]:
+        """Zielpositionen (roh). `move_to` setzt vorher die Grenzen und begrenzt jedes Ziel."""
+        self._require_free(client_id)
+        for name in targets:
+            self.joint(name)
+        if not self.arm.motion_ready:
+            self.run(lambda arm: arm.configure_motion(**self._motion_kwargs()))
+        return self.run(lambda arm: arm.move_to({n: int(v) for n, v in targets.items()}))
+
+    def _motion_kwargs(self) -> dict[str, int]:
+        return {"max_velocity": self.motion["velocity"], "acceleration": self.motion["acceleration"]}
+
+    # ------------------------------------------------------------ Register-Explorer
+
+    def read_registers(self, joint_name: str) -> list[dict[str, Any]]:
+        """Alle Register eines Gelenks lesen (darf jeder, verändert nichts)."""
+        servo = self.joint(joint_name).motor_id
+        rows = []
+        with self.bus_lock:
+            for reg in sorted(regs.registers(), key=lambda r: r.address):
+                try:
+                    value: int | None = self.arm.backend.read_register(servo, reg.name)
+                except BackendError:
+                    value = None
+                meaning = info(reg.name)
+                write, reason = self._write_rule(reg)
+                rows.append(
+                    {
+                        "address": reg.address,
+                        "name": reg.name,
+                        "size": reg.size,
+                        "area": reg.area.value,
+                        "writable": reg.writable,
+                        "value": value,
+                        "unit": meaning.unit,
+                        "text": meaning.text,
+                        "write": write,  # ram | eeprom | panel | locked
+                        "reason": reason,
+                    }
+                )
+        return rows
+
+    @staticmethod
+    def _write_rule(reg: regs.Register) -> tuple[str, str]:
+        if not reg.writable:
+            return "locked", "nur lesbar"
+        if reg.name in VIA_PANEL:
+            return "panel", VIA_PANEL[reg.name]
+        if reg.area is regs.Area.RAM:
+            if reg.name in regs.RAM_WRITE_WHITELIST:
+                return "ram", "RAM, freigegeben (gilt bis zum Ausschalten)"
+            return "locked", "RAM, nicht auf der Whitelist"
+        if reg.area is regs.Area.EEPROM:
+            if reg.name in EEPROM_LOCKED:
+                return "locked", EEPROM_LOCKED[reg.name]
+            return "eeprom", "EEPROM: dauerhaft, nur mit Bestätigung"
+        return "locked", "nicht in der Feetech-Tabelle V3.7, Schreiben gesperrt"
+
+    def write_register(
+        self, client_id: str | None, joint_name: str, name: str, value: int, confirm_eeprom: bool = False
+    ) -> int:
+        """Ein Register schreiben und zurücklesen. Liefert den zurückgelesenen Wert."""
+        self._require_free(client_id)
+        joint = self.joint(joint_name)
+        reg = regs.lookup(name)
+        rule, reason = self._write_rule(reg)
+        if rule in ("locked", "panel"):
+            raise BackendError(f"'{reg.name}' wird hier nicht geschrieben: {reason}")
+        if rule == "eeprom":
+            if not confirm_eeprom:
+                raise BackendError(
+                    f"'{reg.name}' liegt im EEPROM. Schreiben nur mit ausdrücklicher Bestätigung."
+                )
+            self.run(lambda arm: arm.backend.write_eeprom(joint.motor_id, reg.name, value))  # prüft selbst
+            readback = self.run(lambda arm: arm.backend.read_register(joint.motor_id, reg.name))
+            self.event(
+                "warn", f"EEPROM: {joint.name}.{reg.name} = {readback} (dauerhaft, Drehmoment dabei aus)."
+            )
+            return readback
+
+        def write_and_read(arm: Arm) -> int:
+            write_ram_register(arm.backend, joint.motor_id, reg.name, value)
+            return arm.backend.read_register(joint.motor_id, reg.name)
+
+        readback = self.run(write_and_read)
+        if readback != value:
+            raise BackendError(f"Zurückgelesen {readback}, geschrieben {value}.")
+        self.event("info", f"RAM: {joint.name}.{reg.name} = {readback}.")
+        return readback
+
+    # ------------------------------------------------------------ Kalibrierung
+
+    def calibration_start(self, client_id: str | None) -> dict[str, Any]:
+        self._require_free(client_id)
+        if self.missing:
+            raise BackendError(
+                f"Kalibrieren geht nur, wenn alle Motoren antworten. Es fehlen: {', '.join(self.missing)}."
+            )
+        self.calibration_run = self.run(CalibrationRun.start)
+        self.event("info", "Kalibrierung gestartet: Drehmoment aus. Gelenke in die Mitte stellen.")
+        return self.calibration_run.status()
+
+    def _calibration(self, client_id: str | None, stage: Stage) -> CalibrationRun:
+        self.require_control(client_id)
+        run = self.calibration_run
+        if run is None or run.stage is not stage:
+            raise BackendError("Dieser Kalibrierschritt passt gerade nicht. Kalibrierung neu starten.")
+        return run
+
+    def calibration_middle(self, client_id: str | None) -> dict[str, Any]:
+        run = self._calibration(client_id, Stage.MIDDLE)
+        offsets = self.run(lambda arm: run.set_middle())
+        self.event(
+            "warn",
+            "Kalibrierung: Mitte übernommen, Homing-Offsets ins EEPROM geschrieben: "
+            + ", ".join(f"{n} {o}" for n, o in offsets.items())
+            + ".",
+        )
+        return run.status()
+
+    def calibration_finish(self, client_id: str | None) -> dict[str, Any]:
+        run = self._calibration(client_id, Stage.RANGE)
+        path = self.run(lambda arm: run.finish())
+        self.event("info", f"Kalibrierung gespeichert: {path}. Grenzen sind ab sofort aktiv.")
+        return run.status()
+
+    def calibration_cancel(self, client_id: str | None) -> dict[str, Any] | None:
+        self.require_control(client_id)
+        self._abort_calibration("Abgebrochen")
+        return self.calibration_run.status() if self.calibration_run else None
+
+    def _abort_calibration(self, reason: str) -> None:
+        run = self.calibration_run
+        if run is None or run.stage not in (Stage.MIDDLE, Stage.RANGE):
+            return
+        try:
+            self.run(lambda arm: run.cancel())
+            self.event("warn", f"Kalibrierung abgebrochen ({reason}). Alte Werte wiederhergestellt.")
+        except Exception as exc:
+            self.event("error", f"Kalibrierung abgebrochen ({reason}), Zurückschreiben fehlgeschlagen: {exc}")
 
     def emergency_stop(self) -> None:
         with self._control_lock:
@@ -206,8 +403,10 @@ class DeviceSession:
             self.arm.emergency_stop()  # meldet Fehler je Motor selbst ins Log, wirft nicht
         self._refresh_slow = True
         self.event("error", "NOT-AUS: Räder stopp, Drehmoment aus.")
+        self._abort_calibration("Not-Aus")
 
     def _make_safe(self) -> None:
+        self._abort_calibration("Steuerrecht verloren")
         self._run_safely(lambda arm: arm.safe_shutdown(), "Sicherer Zustand")
 
     def _run_safely(self, fn: Callable[[Arm], object], label: str) -> None:
@@ -232,6 +431,9 @@ class DeviceSession:
                         self._refresh_slow = False
                         self._slow = self.arm.read_state(self.present)
                 self._error = None
+                run = self.calibration_run
+                if run is not None:
+                    run.track(positions)  # zeichnet nur im Schritt „Bereich“ auf
                 self._snapshot_joints(positions)
             except BackendError as exc:
                 if self._error != str(exc):
@@ -299,5 +501,8 @@ class DeviceSession:
             "error": self._error,
             "missing": list(self.missing),
             "events": [asdict(e) for e in list(self._events)[-20:]],
+            "motion": dict(self.motion),
+            "calibration": self.calibration_run.status() if self.calibration_run else None,
+            "calibration_target": str(target_path(self.arm)),
             **self._snapshot,
         }

@@ -261,3 +261,138 @@ def test_server_shutdown_resets_and_disconnects(config_path):
     assert server.sessions == {}
     assert not backend.is_connected
     assert all(s.values["torque_enable"] == 0 for s in backend.servos)
+
+
+# ------------------------------------------------------------------ Bewegen, Register, Kalibrierung
+
+
+def take(client, ws, name="demo"):
+    me = ws.receive_json()["client_id"]
+    assert client.post(f"/api/devices/{name}/control", json={"client_id": me}).status_code == 200
+    return me
+
+
+def test_move_is_clamped_and_needs_control(config_path):
+    client, server = make_client(config_path, watchdog_ms=2000)
+    with client:
+        client.post("/api/devices/demo/connect", json={})
+        with client.websocket_connect("/ws") as ws:
+            me = ws.receive_json()["client_id"]
+            r = client.post(
+                "/api/devices/demo/move", json={"client_id": me, "targets": {"shoulder_pan": 2200}}
+            )
+            assert r.status_code == 409
+            client.post("/api/devices/demo/control", json={"client_id": me})
+            client.post(
+                "/api/devices/demo/torque",
+                json={"client_id": me, "enabled": True, "joints": ["shoulder_pan"]},
+            )
+            assert torque_flags(server) == [1, 0, 0, 0, 0, 0]
+            r = client.post(
+                "/api/devices/demo/move", json={"client_id": me, "targets": {"shoulder_pan": 3500}}
+            )
+            assert r.json()["sent"] == {"shoulder_pan": 2048 + 400}  # größter Sprung
+            r = client.post("/api/devices/demo/move", json={"client_id": me, "targets": {"gibtsnicht": 1}})
+            assert r.status_code == 400
+
+
+def test_motion_limits_are_written(config_path):
+    client, server = make_client(config_path, watchdog_ms=2000)
+    with client:
+        client.post("/api/devices/demo/connect", json={})
+        with client.websocket_connect("/ws") as ws:
+            me = take(client, ws)
+            r = client.post(
+                "/api/devices/demo/motion", json={"client_id": me, "velocity": 300, "acceleration": 5}
+            )
+            assert r.json() == {"velocity": 300, "acceleration": 5}
+            servos = server.sessions["demo"].arm.backend.servos
+            assert all(s.values["acceleration"] == 5 and s.values["goal_velocity"] == 300 for s in servos)
+
+
+def test_register_explorer_rules(config_path):
+    client, server = make_client(config_path, watchdog_ms=2000)
+    with client:
+        client.post("/api/devices/demo/connect", json={})
+        rows = {r["name"]: r for r in client.get("/api/devices/demo/registers/elbow_flex").json()}
+        assert rows["id"]["value"] == 3 and rows["id"]["write"] == "locked"
+        assert rows["acceleration"]["write"] == "ram"
+        assert rows["p_coefficient"]["write"] == "eeprom"
+        assert rows["torque_enable"]["write"] == "panel"
+        assert rows["lock"]["write"] == "locked"
+        assert rows["present_position"]["write"] == "locked"
+        assert rows["dts"]["write"] == "locked"
+        with client.websocket_connect("/ws") as ws:
+            me = take(client, ws)
+
+            def write(register, value, **extra):
+                body = {
+                    "client_id": me,
+                    "joint": "elbow_flex",
+                    "register_name": register,
+                    "value": value,
+                    **extra,
+                }
+                return client.post("/api/devices/demo/registers", json=body)
+
+            assert write("acceleration", 33).json()["value"] == 33
+            assert write("lock", 0).status_code == 400
+            assert write("id", 9).status_code == 400
+            assert write("torque_enable", 1).status_code == 400
+            assert write("homing_offset", 10, confirm_eeprom=True).status_code == 400
+            r = write("p_coefficient", 20)
+            assert r.status_code == 400 and "Bestätigung" in r.json()["detail"]
+            assert write("p_coefficient", 20, confirm_eeprom=True).json()["value"] == 20
+            servo = server.sessions["demo"].arm.backend.servo(3)
+            assert servo.persisted["p_coefficient"] == 20  # dauerhaft
+
+
+def test_calibration_through_the_api(config_path, tmp_path):
+    client, server = make_client(config_path, watchdog_ms=2000)
+    with client:
+        client.post("/api/devices/demo/connect", json={})
+        bus = server.sessions["demo"].arm.backend
+        with client.websocket_connect("/ws") as ws:
+            me = take(client, ws)
+
+            def step(name):
+                return client.post(f"/api/devices/demo/calibration/{name}", json={"client_id": me})
+
+            assert step("middle").status_code == 400  # erst starten
+            status = step("start").json()
+            assert status["stage"] == "mitte"
+            assert status["target_path"].endswith("calibration/robots/so_follower/demo.json")
+            # während der Kalibrierung keine Bewegung
+            r = client.post("/api/devices/demo/torque", json={"client_id": me, "enabled": True})
+            assert r.status_code == 409
+            bus.move_by_hand(1, 1000)
+            assert step("middle").json()["stage"] == "bereich"
+            for raw in (1500, 2600):  # von Hand durch den Bereich, die Abfrage schreibt mit
+                for s in range(1, 7):
+                    bus.move_by_hand(s, raw)
+                time.sleep(0.15)
+            status = step("finish").json()
+            assert status["stage"] == "fertig"
+            path = tmp_path / "calibration" / "robots" / "so_follower" / "demo.json"
+            assert status["saved_path"] == str(path) and path.exists()
+            snap = client.get("/api/devices/demo/state").json()
+            assert snap["calibration_path"] == str(path) and snap["calibrated"]
+            pan = next(j for j in snap["joints"] if j["name"] == "shoulder_pan")
+            assert pan["limits"][0] <= 1500 and pan["limits"][1] >= 2600
+
+
+def test_watchdog_aborts_calibration_and_restores(config_path):
+    client, server = make_client(config_path, watchdog_ms=150)
+    with client:
+        client.post("/api/devices/demo/connect", json={})
+        bus = server.sessions["demo"].arm.backend
+        with client.websocket_connect("/ws") as ws:
+            me = take(client, ws)
+            client.post("/api/devices/demo/calibration/start", json={"client_id": me})
+            bus.move_by_hand(2, 3000)
+            ws.send_json({"type": "heartbeat"})
+            client.post("/api/devices/demo/calibration/middle", json={"client_id": me})
+            assert bus.servo(2).values["homing_offset"] != 0
+            assert wait_for(lambda: server.sessions["demo"].calibration_run.stage == "abgebrochen")
+            assert all(s.values["homing_offset"] == 0 for s in bus.servos)
+            assert all(s.values["max_position_limit"] == 4095 for s in bus.servos)
