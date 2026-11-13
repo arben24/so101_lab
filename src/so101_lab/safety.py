@@ -55,6 +55,29 @@ def install_sigterm_handler() -> None:
         signal.signal(signal.SIGTERM, _handler)
 
 
+def connect_arm(device: str, *, port: str | None = None, config_path: str | None = None) -> Arm:
+    """Gerät aus config/arms.toml verbinden und als `Arm` zurückgeben, ohne Zurücksetzen am Ende.
+
+    Für langlebige Verbindungen (Web-App). Wer das benutzt, muss selbst `arm.safe_shutdown()`
+    und `arm.backend.disconnect()` aufrufen. In Skripten stattdessen `open_arm` verwenden.
+    """
+    from .arm import Arm
+    from .backends import create_backend
+    from .calibration import find_calibration_file, load_calibration
+    from .config import load_config
+    from .devices import get_device_spec
+
+    cfg = load_config(config_path).device(device)
+    spec = get_device_spec(cfg.type)
+    cal_path = find_calibration_file(spec, cfg.calibration_id, cfg.calibration_dir)
+    calibration = load_calibration(cal_path) if cal_path else None
+    if cal_path is None:
+        logger.warning("Keine Kalibrierung für '%s' gefunden: Grenzen sind 0…4095.", cfg.calibration_id)
+    backend = create_backend(cfg, port)
+    backend.connect()
+    return Arm(backend, spec, cfg, calibration, calibration_path=cal_path)
+
+
 @contextmanager
 def open_arm(
     device: str,
@@ -73,21 +96,8 @@ def open_arm(
     Drehmoment aus oder Stellung halten. Danach wird die Verbindung geschlossen.
     Mit `read_only=True` (nur Lesen, z. B. `so101-lab state`) wird am Ende nichts verändert.
     """
-    from .arm import Arm
-    from .backends import create_backend
-    from .calibration import find_calibration_file, load_calibration
-    from .config import load_config
-    from .devices import get_device_spec
-
-    cfg = load_config(config_path).device(device)
-    spec = get_device_spec(cfg.type)
-    cal_path = find_calibration_file(spec, cfg.calibration_id, cfg.calibration_dir)
-    calibration = load_calibration(cal_path) if cal_path else None
-    if cal_path is None:
-        logger.warning("Keine Kalibrierung für '%s' gefunden: Grenzen sind 0…4095.", cfg.calibration_id)
-    backend = create_backend(cfg, port)
-    backend.connect()
-    arm = Arm(backend, spec, cfg, calibration, calibration_path=cal_path)
+    arm = connect_arm(device, port=port, config_path=config_path)
+    backend = arm.backend
     try:
         if check_motors:
             arm.check_motors()

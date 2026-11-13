@@ -8,14 +8,21 @@ requires-python = ">=3.12,<3.13"
 # torch kommt über die Gruppen "cpu"/"cuda" (siehe unten), weil [tool.uv.sources] nur auf
 # direkte Abhängigkeiten wirkt.
 dependencies = [
+    "fastapi>=0.162.6",
     "lerobot[feetech,lekiwi,core-scripts]==0.7.0",
+    "uvicorn>=0.54.0",
+    "websockets>=17.4",
 ]
 
 [project.scripts]
 so101-lab = "so101_lab.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8", "ruff>=0.8"]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=8",
+    "ruff>=0.8",
+]
 docs = ["mkdocs-material>=9.5"]
 sim = ["mujoco>=3"]
 # torch-Variante für Linux x86_64. Standard ist "cpu" (ca. 1,2 GB). Für Training:
