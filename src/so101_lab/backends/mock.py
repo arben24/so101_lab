@@ -119,8 +119,9 @@ class MockServo:
                 velocity = float(self.values["goal_velocity"])
                 self.exact_position = (self.exact_position + velocity * dt) % 4096
             elif self.values["operating_mode"] == 0:
+                # Ziel und Grenzen gelten wie Present_Position in Koordinaten mit Homing-Offset.
                 lo, hi = self.values["min_position_limit"], self.values["max_position_limit"]
-                target = min(hi, max(lo, self.values["goal_position"]))
+                target = min(hi, max(lo, self.values["goal_position"])) + self.values["homing_offset"]
                 speed = abs(self.values["goal_velocity"]) or MAX_SPEED
                 diff = target - self.exact_position
                 step = max(-speed * dt, min(speed * dt, diff))
