@@ -94,3 +94,44 @@ td.err { color: var(--danger); }
 #toast.show { display: block; }
 #toast.info { background: var(--accent); }
 dialog { border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--text); }
+
+/* ---------- Reiter */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+.tabs a {
+  padding: 8px 14px; color: var(--muted); text-decoration: none;
+  border: 1px solid transparent; border-bottom: 0; border-radius: 6px 6px 0 0;
+}
+.tabs a.active { color: var(--text); background: var(--card); border-color: var(--line); font-weight: 600; }
+.tab { display: none; }
+.tab.active { display: block; }
+h2.sub { margin-top: 16px; }
+label.check { flex-direction: row; align-items: center; gap: 6px; font-size: 13px; color: var(--text); }
+label.check input { min-width: 0; }
+
+/* ---------- Einzelservo */
+.gauges { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin: 14px 0; }
+.gauge { border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+.gauge span { display: block; font-size: 12px; color: var(--muted); }
+.gauge b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.slider-row { display: flex; align-items: center; gap: 10px; }
+.slider-row input[type=range] { flex: 1; min-width: 0; }
+.slider-row span { font-variant-numeric: tabular-nums; color: var(--muted); min-width: 40px; text-align: center; }
+
+/* ---------- Register */
+#reg-table td:nth-child(6) { white-space: normal; text-align: left; min-width: 260px; }
+#reg-table td:nth-child(2), #reg-table td:nth-child(3) { text-align: left; }
+#reg-table input { min-width: 0; width: 90px; padding: 2px 6px; }
+#reg-table button { padding: 2px 8px; }
+#reg-table .eeprom { color: var(--warn); }
+#reg-table .reason { color: var(--muted); font-size: 12px; white-space: normal; text-align: left; }
+
+/* ---------- Kalibrierung */
+.steps { padding-left: 20px; }
+.steps li { margin: 8px 0; padding: 8px 10px; border-radius: 6px; opacity: .55; }
+.steps li.current { opacity: 1; background: var(--bg); border: 1px solid var(--accent); }
+.steps li.done { opacity: .8; }
+.steps li.done b:first-child::after { content: " ✓"; color: var(--ok); }
+.diagram { font-size: 11px; line-height: 1.15; overflow-x: auto; color: var(--muted); }
+.range-bar { position: relative; height: 10px; width: 260px; background: var(--bg); border: 1px solid var(--line); border-radius: 3px; }
+.range-bar .span { position: absolute; top: 0; bottom: 0; background: var(--accent); opacity: .5; }
+.range-bar .now { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--text); }

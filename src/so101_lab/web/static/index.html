@@ -53,7 +53,15 @@
       </p>
     </section>
 
-    <section class="card">
+    <nav class="tabs" id="tabs">
+      <a href="#status">Status</a>
+      <a href="#servo">Einzelservo</a>
+      <a href="#register">Register</a>
+      <a href="#kalibrierung">Kalibrierung</a>
+    </nav>
+
+    <!-- ============================================================ Status -->
+    <section class="card tab" id="tab-status">
       <h2>Gelenke</h2>
       <div class="table-wrap">
         <table id="joints">
@@ -66,11 +74,98 @@
           <tbody></tbody>
         </table>
       </div>
+      <h2 class="sub">Meldungen</h2>
+      <ul id="events"></ul>
     </section>
 
-    <section class="card">
-      <h2>Meldungen</h2>
-      <ul id="events"></ul>
+    <!-- ============================================================ Einzelservo -->
+    <section class="card tab" id="tab-servo">
+      <h2>Einzelservo</h2>
+      <div class="row">
+        <label>Gelenk <select id="servo-joint"></select></label>
+        <label>Tempo (Schritt/s, ≤ 3400) <input id="servo-velocity" type="number" min="1" max="3400" step="50"></label>
+        <label>Beschleunigung (× 100 Schritt/s²) <input id="servo-accel" type="number" min="1" max="254"></label>
+        <button id="servo-motion" class="secondary">Grenzen setzen</button>
+        <span class="spacer"></span>
+        <button id="servo-torque-on" class="warn">Drehmoment an</button>
+        <button id="servo-torque-off" class="secondary">Drehmoment aus</button>
+      </div>
+      <div class="gauges" id="servo-gauges"></div>
+      <div class="slider-row">
+        <span id="servo-min">0</span>
+        <input type="range" id="servo-slider" min="0" max="4095" step="1">
+        <span id="servo-max">4095</span>
+      </div>
+      <p>Ziel gesendet: <b id="servo-goal">–</b> · Istposition: <b id="servo-pos">–</b></p>
+      <p class="hint" id="servo-hint"></p>
+    </section>
+
+    <!-- ============================================================ Register -->
+    <section class="card tab" id="tab-register">
+      <h2>Register-Explorer</h2>
+      <div class="row">
+        <label>Gelenk <select id="reg-joint"></select></label>
+        <button id="reg-read">Alle Register lesen</button>
+        <label class="check"><input type="checkbox" id="reg-expert"> EEPROM-Schreiben freischalten (Expertenmodus)</label>
+      </div>
+      <p class="hint">
+        Lesen darf jeder. Schreiben braucht das Steuerrecht. <b>RAM</b>-Register der Whitelist gelten bis zum
+        Ausschalten. <b>EEPROM</b>-Register bleiben dauerhaft im Servo und werden nur nach Bestätigung geschrieben,
+        danach zurückgelesen. ID, Baudrate und Kalibrierwerte haben eigene Abläufe.
+      </p>
+      <div class="table-wrap">
+        <table id="reg-table">
+          <thead>
+            <tr><th>Adr</th><th>Name</th><th>Bereich</th><th>Wert</th><th>Einheit</th><th>Bedeutung</th><th>Schreiben</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================================================ Kalibrierung -->
+    <section class="card tab" id="tab-kalibrierung">
+      <h2>Kalibrierung</h2>
+      <dl class="facts" id="cal-facts"></dl>
+      <ol class="steps">
+        <li id="cal-step-start">
+          <b>Starten.</b> Das Drehmoment geht aus, der Arm wird kraftlos. <b>Arm festhalten!</b>
+          Die bisherigen Werte im Servo werden gemerkt; beim Abbrechen werden sie zurückgeschrieben.
+          <div class="row"><button id="cal-start">Kalibrierung starten</button></div>
+        </li>
+        <li id="cal-step-middle">
+          <b>Mitte.</b> Alle Gelenke von Hand in die Mitte ihres Bewegungsbereichs stellen, ungefähr wie in der
+          Skizze (aus LeRobot): Oberarm senkrecht, Unterarm waagerecht, Handgelenk gerade.
+          Dann übernehmen: Der Homing-Offset wird so ins EEPROM geschrieben, dass diese Stellung 2047 ergibt.
+<pre class="diagram">       ╭─────┬────────────────────┬──────╮ ◉╲═════╗   ← bewegliche Backe
+       │     │      Unterarm      │  ▤▤  │╤══╲════╝   ← feste Backe
+       ╰┬───┬┴────────────────────┴──────┴┴═══════╝
+        │   │
+        │   │   Oberarm
+        │   │
+   ╭────┴───┴────╮
+   │   Basis ◉   │
+   ╰──┬───────┬──╯
+  ╭───┴───────┴───╮
+  │▓▓▓ Zwinge ▓▓▓▓│
+  ╰───────────────╯
+═══════════════════════════════  Tischkante</pre>
+          <div class="row"><button id="cal-middle">Mitte übernehmen</button></div>
+        </li>
+        <li id="cal-step-range">
+          <b>Bereich.</b> Jedes Gelenk nacheinander langsam bis zu <b>beiden</b> Anschlägen bewegen. Minimum und
+          Maximum werden live mitgeschrieben. <code>wrist_roll</code> dreht ganz und bekommt 0…4095.
+          <div class="row"><button id="cal-finish">Speichern</button></div>
+        </li>
+        <li id="cal-step-done"><b>Fertig.</b> Grenzen und Datei sind geschrieben und sofort aktiv.</li>
+      </ol>
+      <div class="row"><button id="cal-cancel" class="secondary">Abbrechen (alte Werte zurück)</button></div>
+      <div class="table-wrap">
+        <table id="cal-table">
+          <thead><tr><th>Gelenk</th><th>Offset</th><th>Min</th><th>Ist</th><th>Max</th><th>Bereich (0…4095)</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </section>
   </main>
 

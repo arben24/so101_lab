@@ -208,6 +208,9 @@ function render() {
   renderFacts(snap);
   renderJoints(snap);
   renderEvents(snap);
+  renderServo(snap, mine);
+  renderRegisterControls(snap, mine);
+  renderCalibration(snap, mine);
 }
 
 function renderFacts(snap) {
@@ -344,6 +347,10 @@ function bind() {
 async function main() {
   loadToken();
   bind();
+  bindTabs();
+  bindServo();
+  bindRegisters();
+  bindCalibration();
   const info = await (await fetch("/api/info")).json();
   if (!info.docs) {
     $("docs-link").classList.add("disabled");
@@ -353,6 +360,300 @@ async function main() {
   await action(loadDevices);
   await action(loadPorts);
   openLive();
+}
+
+// ------------------------------------------------------------------ Reiter
+
+const TABS = ["status", "servo", "register", "kalibrierung"];
+
+function showTab() {
+  const tab = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "status";
+  for (const t of TABS) $(`tab-${t}`).classList.toggle("active", t === tab);
+  for (const a of $("tabs").querySelectorAll("a")) a.classList.toggle("active", a.hash === `#${tab}`);
+}
+
+function bindTabs() {
+  window.addEventListener("hashchange", showTab);
+  showTab();
+}
+
+function currentSnap() {
+  const device = selectedDevice();
+  return device ? app.snapshots[device.name] : null;
+}
+
+function fillJointSelect(select, joints) {
+  const names = joints.map((j) => j.name);
+  if (select.dataset.names === names.join()) return;
+  const keep = select.value;
+  select.innerHTML = "";
+  for (const n of names) select.add(new Option(n, n));
+  if (names.includes(keep)) select.value = keep;
+  select.dataset.names = names.join();
+}
+
+// ------------------------------------------------------------------ Einzelservo
+
+const servo = { dragging: false, pending: null, timer: null, lastSent: null };
+
+function servoJoint(snap) {
+  return snap?.joints?.find((j) => j.name === $("servo-joint").value);
+}
+
+function renderServo(snap, mine) {
+  const joints = snap?.joints ?? [];
+  fillJointSelect($("servo-joint"), joints);
+  const j = servoJoint(snap);
+  const position = j && j.mode === "position";
+  for (const id of ["servo-motion", "servo-torque-on", "servo-torque-off"]) $(id).disabled = !mine;
+  $("servo-slider").disabled = !mine || !position;
+  if (snap && document.activeElement !== $("servo-velocity") && document.activeElement !== $("servo-accel")) {
+    $("servo-velocity").value = snap.motion.velocity;
+    $("servo-accel").value = snap.motion.acceleration;
+  }
+  const gauges = $("servo-gauges");
+  gauges.innerHTML = "";
+  if (!j) return;
+  const items = [
+    ["Roh", j.position],
+    ["Wert", j.value === null ? "–" : `${fmt(j.value, 1)} ${j.unit}`],
+    ["Tempo", fmt(j.velocity)],
+    ["Last (0,1 %)", fmt(j.load)],
+    ["Strom mA", fmt(j.current_ma)],
+    ["Spannung V", fmt(j.voltage, 1)],
+    ["Temperatur °C", fmt(j.temperature)],
+    ["Drehmoment", j.torque === null ? "–" : j.torque ? "an" : "aus"],
+    ["Fehler", j.errors.join(", ") || "–"],
+  ];
+  for (const [label, value] of items) {
+    const div = document.createElement("div");
+    div.className = "gauge";
+    const span = document.createElement("span");
+    span.textContent = label;
+    const b = document.createElement("b");
+    b.textContent = value;
+    div.append(span, b);
+    gauges.append(div);
+  }
+  const slider = $("servo-slider");
+  slider.min = j.limits[0];
+  slider.max = j.limits[1];
+  $("servo-min").textContent = j.limits[0];
+  $("servo-max").textContent = j.limits[1];
+  if (!servo.dragging) slider.value = j.position;
+  $("servo-pos").textContent = j.position;
+  $("servo-hint").textContent = !position
+    ? "Räder werden mit der LeKiwi-Fahrsteuerung bewegt, nicht hier."
+    : !snap.calibrated
+      ? "Keine Kalibrierung: Grenzen sind 0…4095, das Gelenk kann gegen einen Anschlag fahren. Erst kalibrieren!"
+      : !j.torque
+        ? "Drehmoment ist aus: Der Schieberegler setzt das Ziel, bewegen tut sich erst mit Drehmoment an."
+        : `Jeder Sollwert wird auf ${j.limits[0]}…${j.limits[1]} und auf den größten Sprung je Befehl begrenzt.`;
+}
+
+function sendServoGoal() {
+  servo.timer = null;
+  if (servo.pending === null) return;
+  const name = $("servo-joint").value;
+  const value = Number(servo.pending);
+  servo.pending = null;
+  action(async () => {
+    const result = await api("POST", deviceUrl("move"), { client_id: app.clientId, targets: { [name]: value } });
+    $("servo-goal").textContent = result.sent[name] + (result.sent[name] !== value ? ` (begrenzt von ${value})` : "");
+  });
+}
+
+function bindServo() {
+  const slider = $("servo-slider");
+  slider.addEventListener("pointerdown", () => (servo.dragging = true));
+  slider.addEventListener("pointerup", () => (servo.dragging = false));
+  slider.addEventListener("input", () => {
+    servo.pending = slider.value;
+    if (!servo.timer) servo.timer = setTimeout(sendServoGoal, 60); // höchstens ~16 Sollwerte je Sekunde
+  });
+  slider.addEventListener("change", () => {
+    servo.pending = slider.value;
+    servo.dragging = false;
+    if (!servo.timer) sendServoGoal();
+  });
+  $("servo-joint").onchange = () => {
+    $("servo-goal").textContent = "–";
+    render();
+  };
+  $("servo-motion").onclick = () =>
+    action(() =>
+      api("POST", deviceUrl("motion"), {
+        client_id: app.clientId,
+        velocity: Number($("servo-velocity").value),
+        acceleration: Number($("servo-accel").value),
+      }),
+    );
+  $("servo-torque-on").onclick = () =>
+    action(() =>
+      api("POST", deviceUrl("torque"), { client_id: app.clientId, enabled: true, joints: [$("servo-joint").value] }),
+    );
+  $("servo-torque-off").onclick = () =>
+    action(() =>
+      api("POST", deviceUrl("torque"), { client_id: app.clientId, enabled: false, joints: [$("servo-joint").value] }),
+    );
+}
+
+// ------------------------------------------------------------------ Register-Explorer
+
+function renderRegisterControls(snap, mine) {
+  fillJointSelect($("reg-joint"), snap?.joints ?? []);
+  $("reg-read").disabled = !snap;
+  for (const b of $("reg-table").querySelectorAll("button")) b.disabled = !mine;
+}
+
+async function readRegisters() {
+  const joint = $("reg-joint").value;
+  const rows = await api("GET", deviceUrl(`registers/${encodeURIComponent(joint)}`));
+  const body = $("reg-table").querySelector("tbody");
+  body.innerHTML = "";
+  const expert = $("reg-expert").checked;
+  for (const r of rows) {
+    const tr = document.createElement("tr");
+    const cells = [r.address, r.name, r.area, r.value ?? "–", r.unit || "–", r.text];
+    for (const text of cells) {
+      const td = document.createElement("td");
+      td.textContent = text;
+      tr.append(td);
+    }
+    if (r.area === "EEPROM") tr.children[2].className = "eeprom";
+    const td = document.createElement("td");
+    if (r.write === "ram" || (r.write === "eeprom" && expert)) {
+      const input = document.createElement("input");
+      input.type = "number";
+      input.value = r.value ?? "";
+      const button = document.createElement("button");
+      button.textContent = "Schreiben";
+      if (r.write === "eeprom") button.className = "warn";
+      button.onclick = () => writeRegister(joint, r, Number(input.value));
+      td.append(input, " ", button);
+    } else {
+      td.className = "reason";
+      td.textContent = r.write === "eeprom" ? "EEPROM: Expertenmodus einschalten" : r.reason;
+    }
+    tr.append(td);
+    body.append(tr);
+  }
+  render();
+}
+
+function writeRegister(joint, r, value) {
+  action(async () => {
+    const eeprom = r.write === "eeprom";
+    if (eeprom) {
+      const ok = confirm(
+        `EEPROM schreiben: ${joint}.${r.name} = ${r.value} → ${value}\n\n` +
+          "Der Wert bleibt dauerhaft im Servo, auch nach dem Ausschalten. Das Drehmoment dieses Servos wird " +
+          "dabei ausgeschaltet. Falsche Werte können das Verhalten des Servos stark verändern.\n\nWirklich schreiben?",
+      );
+      if (!ok) return;
+    }
+    const result = await api("POST", deviceUrl("registers"), {
+      client_id: app.clientId,
+      joint,
+      register_name: r.name,
+      value,
+      confirm_eeprom: eeprom,
+    });
+    toast(`${joint}.${r.name} = ${result.value} (zurückgelesen)`, "info");
+    await readRegisters();
+  });
+}
+
+function bindRegisters() {
+  $("reg-read").onclick = () => action(readRegisters);
+  $("reg-expert").onchange = () => {
+    if ($("reg-table").querySelector("tbody").children.length) action(readRegisters);
+  };
+}
+
+// ------------------------------------------------------------------ Kalibrierung
+
+function renderCalibration(snap, mine) {
+  const cal = snap?.calibration;
+  const stage = cal?.stage ?? "start";
+  const running = stage === "mitte" || stage === "bereich";
+  const facts = $("cal-facts");
+  facts.innerHTML = "";
+  if (snap) {
+    const rows = [
+      ["Gerät", `${snap.name} (${snap.description}), Kalibrier-ID '${snap.calibration_id}'`],
+      ["Aktuelle Datei", snap.calibration_path ?? "keine – Grenzen 0…4095"],
+      ["Wird gespeichert nach", cal?.target_path ?? snap.calibration_target],
+    ];
+    if ((cal?.target_exists || snap.calibration_path === snap.calibration_target) && stage !== "fertig")
+      rows.push(["Hinweis", "Eine vorhandene Datei wird ersetzt, die alte bleibt als .json.bak erhalten."]);
+    if (cal?.saved_path) rows.push(["Gespeichert", cal.saved_path]);
+    if (!mine) rows.push(["Steuerrecht", "Zum Kalibrieren erst „Steuerung übernehmen“."]);
+    for (const [k, v] of rows) {
+      const dt = document.createElement("dt");
+      dt.textContent = k;
+      const dd = document.createElement("dd");
+      dd.textContent = v;
+      facts.append(dt, dd);
+    }
+  }
+  const order = ["start", "mitte", "bereich", "fertig"];
+  const index = order.indexOf(stage === "abgebrochen" ? "start" : stage);
+  const ids = ["cal-step-start", "cal-step-middle", "cal-step-range", "cal-step-done"];
+  ids.forEach((id, i) => {
+    $(id).className = i === index ? "current" : i < index ? "done" : "";
+  });
+  $("cal-start").disabled = !mine || running;
+  $("cal-middle").disabled = !mine || stage !== "mitte";
+  $("cal-finish").disabled = !mine || stage !== "bereich";
+  $("cal-cancel").disabled = !mine || !running;
+
+  const body = $("cal-table").querySelector("tbody");
+  body.innerHTML = "";
+  for (const j of cal?.joints ?? []) {
+    const tr = document.createElement("tr");
+    const cells = [j.name, j.offset ?? "–", j.recorded ? (j.min ?? "–") : "0", j.position ?? "–", j.recorded ? (j.max ?? "–") : "4095"];
+    for (const text of cells) {
+      const td = document.createElement("td");
+      td.textContent = text;
+      tr.append(td);
+    }
+    const td = document.createElement("td");
+    const bar = document.createElement("div");
+    bar.className = "range-bar";
+    const lo = j.recorded ? j.min : 0;
+    const hi = j.recorded ? j.max : 4095;
+    if (lo !== null && hi !== null) {
+      const span = document.createElement("div");
+      span.className = "span";
+      span.style.left = `${(lo / 4095) * 100}%`;
+      span.style.width = `${Math.max(0.5, ((hi - lo) / 4095) * 100)}%`;
+      bar.append(span);
+    }
+    if (j.position !== null) {
+      const now = document.createElement("div");
+      now.className = "now";
+      now.style.left = `${(Math.min(4095, Math.max(0, j.position)) / 4095) * 100}%`;
+      bar.append(now);
+    }
+    td.append(bar);
+    tr.append(td);
+    body.append(tr);
+  }
+}
+
+function calibrationStep(step) {
+  return action(() => api("POST", deviceUrl(`calibration/${step}`), { client_id: app.clientId }));
+}
+
+function bindCalibration() {
+  $("cal-start").onclick = () => {
+    if (confirm("Kalibrierung starten? Das Drehmoment aller Gelenke geht aus, der Arm wird kraftlos. Arm festhalten!"))
+      calibrationStep("start");
+  };
+  $("cal-middle").onclick = () => calibrationStep("middle");
+  $("cal-finish").onclick = () => calibrationStep("finish");
+  $("cal-cancel").onclick = () => calibrationStep("cancel");
 }
 
 main();
