@@ -480,6 +480,6 @@ CLI / Skripte / Web-App
 6. ~~torch-Variante~~ → CPU als Standard, CUDA optional (entschieden).
 7. **Raspberry Pi:** Darf die Pi-Anleitung ein vollständiges LeRobot samt torch voraussetzen? Welche Speicherkartengröße und wie viel RAM haben die vorhandenen Geräte mindestens?
 8. **Veröffentlichung:** Wird das Repo öffentlich (GitLab Pages)? Dann müssten die Feetech-PDFs und die XLS-Tabelle unter `firmware/esp32/doku/` auf ihre Weitergabe geprüft oder durch Links ersetzt werden.
+9. **Netzteil- und Motorvarianten:** Platzhalter in Kapitel 01, füllt der Auftraggeber aus (Phase 3).
 10. **safe_state:** Standard „Drehmoment aus“ beim Beenden (Arm sinkt ab) oder „Stellung halten“ (Servos bleiben warm)? Derzeit torque_off wie LeRobot.
 11. **Hardware-Abnahme Phase 2:** Scan fand an `/dev/ttyACM0` keinen Servo. Bitte mit eingeschaltetem Servo-Netzteil wiederholen (Testanleitung).
-9. **Netzteil- und Motorvarianten:** Platzhalter in Kapitel 01, füllt der Auftraggeber aus (Phase 3).
