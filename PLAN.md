@@ -15,12 +15,12 @@ der installierten, gepinnten LeRobot-Version prüfen lässt.
 | | |
 |---|---|
 | Datum | 13.11.2026 |
-| Phase | **4 – Web-App-Kern, Teilschritt 4a fertig** (Zwischenhalt nach erstem lauffähigen Teilschritt) |
-| Nächster Schritt | 4b: Einzelservo-Panel, Register-Explorer (Whitelist), **Kalibrierungs-Assistent mit Button und Anzeige des Dateipfads** (Auftraggeber, 13.11.2026), Buttons „In der Web-App ausprobieren“ in der Doku. Modell: Stark |
-| Projektcode | Backends `usb`/`mock`, `Arm`, Skripte 01–07, Web-App (`src/so101_lab/web/`: `app.py`, `session.py`, `docs_build.py`, `static/`), 121 Tests |
-| Doku | Kapitel 00–04, Web-App-Abschnitt in 00. Platzhalter für Netzteil- und Motorvarianten in Kapitel 01 noch offen (Frage 9) |
+| Phase | **4 – Web-App-Kern abgeschlossen** (4a vom Auftraggeber am Arm bestätigt, 4b wartet auf Abnahme) |
+| Nächste Phase | 5 – ID-Einrichtungsassistent in der Web-App (Modell-Empfehlung: Stark) |
+| Projektcode | Backends `usb`/`mock`, `Arm`, `calibrate.py` (Kalibrierung schrittweise), Skripte 01–07, Web-App (`src/so101_lab/web/`: `app.py`, `session.py`, `docs_build.py`, `static/` mit Reitern Status, Einzelservo, Register, Kalibrierung), 142 Tests |
+| Doku | Kapitel 00–04, Web-App-Abschnitt in 00, Kalibrierung über die Web-App in 02, Register-Explorer in 03, Schaltflächen „In der Web-App ausprobieren“. Platzhalter für Netzteil- und Motorvarianten in Kapitel 01 noch offen (Frage 9) |
 | Im Repo | `PLAN.md`, `firmware/esp32/` (ESP32-Code, unverändert) |
-| Hardware-Tests | 13.11.2026 (Phase 2): `/dev/ttyACM0` (Adapter SN 5B90103144), kein Servo antwortete. **13.11.2026 (Phase 4, nur lesend, durch Claude):** an `/dev/ttyACM0` (Adapter **SN 5AAF263183**, also ein anderer Adapter) antworten **alle sechs Follower-Servos**, 11,8–12,0 V, 29–32 °C, Drehmoment aus, keine Fehlerbits, noch keine Kalibrierdatei. Web-App-Abfrage hält 30 Hz. Gemessen (100 Wiederholungen): `read_positions` (ein Sync-Read, 6 Servos) Median 1,0 ms, max 1,6 ms; `read_state` (8 Sync-Reads) Median 9,0 ms, max 10,0 ms. **Bewegt wurde nichts**, Skripte 03–07 am echten Arm noch ungeprüft |
+| Hardware-Tests | 13.11.2026 (Phase 2): `/dev/ttyACM0` (Adapter SN 5B90103144), kein Servo antwortete. **13.11.2026 (Phase 4, nur lesend, durch Claude):** an `/dev/ttyACM0` (Adapter **SN 5AAF263183**, also ein anderer Adapter) antworten **alle sechs Follower-Servos**, 11,8–12,0 V, 29–32 °C, Drehmoment aus, keine Fehlerbits, noch keine Kalibrierdatei. Web-App-Abfrage hält 30 Hz. Gemessen (100 Wiederholungen): `read_positions` (ein Sync-Read, 6 Servos) Median 1,0 ms, max 1,6 ms; `read_state` (8 Sync-Reads) Median 9,0 ms, max 10,0 ms. **Bewegt wurde nichts**, Skripte 03–07 am echten Arm noch ungeprüft. **13.11.2026, Auftraggeber:** Teilschritt 4a am echten Arm funktioniert (Drehmoment an, Arm hält die Position, alle Werte lesbar). Teilschritt 4b (Einzelservo, Register, Kalibrierung) nur gegen Mock und im Browser (headless Chrome) geprüft, am echten Arm noch nicht |
 
 ---
 
@@ -34,11 +34,11 @@ Textarbeit, Boilerplate, Styling.
 - [x] **1 – Grundgerüst** (Mittel): uv-Projekt, `pyproject.toml` mit Gruppen, `config/arms.toml`, udev-Regel, CLI `so101-lab` mit `doctor`, ruff/pytest, MkDocs-Gerüst
 - [x] **2 – Backend-Schicht** (Stark): `ArmBackend`, `UsbBackend`, `MockBackend`, Konfigurations-Lader, Sicherheitsfunktionen, Tests
 - [x] **3 – Lernskripte + Grundlagen-Doku** (Mittel, Glättung Klein): Skripte 01–07, Kapitel 00–04
-- [ ] **4 – Web-App-Kern** (Stark, Styling Klein): FastAPI, Statusseite, Not-Aus, Einzelservo, Register-Explorer, WebSocket, Token, Steuer-Sperre, Watchdog, **Kalibrierungs-Button** (vorgezogen). *Nach erstem lauffähigen Teilschritt kurz anhalten.*
+- [x] **4 – Web-App-Kern** (Stark, Styling Klein): FastAPI, Statusseite, Not-Aus, Einzelservo, Register-Explorer, WebSocket, Token, Steuer-Sperre, Watchdog, **Kalibrierungs-Button** (vorgezogen). *Nach erstem lauffähigen Teilschritt kurz anhalten.*
   - [x] 4a: Server, Statusseite mit Port-Dropdown, Live-Zustand per WebSocket, Not-Aus, Token, Steuer-Sperre, Watchdog, Doku unter `/docs`
-  - [ ] 4b: Einzelservo-Panel, Register-Explorer, Kalibrierungs-Assistent, Doku-Buttons
+  - [x] 4b: Einzelservo-Panel, Register-Explorer, Kalibrierungs-Assistent, Doku-Buttons
 - [ ] **5 – ID-Einrichtungsassistent** (Stark): Assistent in der Web-App, Ein-Servo-Pflicht, Verifikation, Protokoll, Baudrate. Skript 05 (nur ID) gibt es seit Phase 3
-- [ ] **6 – Trajektorien & Kamera** (Mittel, Dataset Stark): Recorder, Bibliothek, Abspielen, Kamera, LeRobot-Dataset, Kalibrierung, Kapitel 05. *Zwischenhalt.*
+- [ ] **6 – Trajektorien & Kamera** (Mittel, Dataset Stark): Recorder, Bibliothek, Abspielen, Kamera, LeRobot-Dataset, Kapitel 05 (Kalibrierung schon in Phase 4). *Zwischenhalt.*
 - [ ] **7 – Netzwerk / Raspberry Pi** (Stark): `RemoteBackend`, Pi-Anleitung, systemd, API-Referenz, Kapitel 06. *Zwischenhalt.*
 - [ ] **8 – ESP32** (Stark): `Esp32Backend`, Funktionsmatrix, Kapitel 07
 - [ ] **9 – LeKiwi** (Stark, Doku Mittel): Räder, Kinematik, Fahrpanel, Skript 09, Kapitel 08. *Zwischenhalt.*
@@ -495,6 +495,12 @@ CLI / Skripte / Web-App
 | 13.11.2026 | Token aus `--token` oder Umgebungsvariable `SO101_LAB_TOKEN`, **nicht** in `arms.toml` (die Datei liegt im Git). Pflicht, wenn `--host` nicht localhost ist, sonst Start abgelehnt. Seiten (HTML/JS/Doku) ohne Token, alle `/api/…` und `/ws` mit Token (`Authorization: Bearer` oder `?token=`), Vergleich mit `secrets.compare_digest` | Geheimnis nicht im Repo |
 | 13.11.2026 | Doku wird beim Start von `so101-lab web` nach `site/` gebaut und unter `/docs/` eingebunden (`--no-docs` schaltet ab, ohne MkDocs läuft die App ohne Doku) | ein Befehl für Labor und Doku |
 | 13.11.2026 | Esc-Taste löst im Browser den Not-Aus aus | schneller als die Maus |
+| 13.11.2026 | **Kalibrierung als eigene Umsetzung in der Web-App** (Auftraggeber bestätigt Vorschlag aus Frage 12). `calibrate.CalibrationRun`: Start (Drehmoment aus, alte Werte merken) → Mitte (zurücksetzen auf Offset 0 und 0…4095, dann `homing_offset = Roh − 2047`, auf ±2047 begrenzt) → Bereich (Minimum/Maximum aus der laufenden Abfrage) → Speichern (Grenzen ins EEPROM, JSON im LeRobot-Format, alte Datei als `.json.bak`). Rechnung aus `SerialMotorsBus.set_half_turn_homings`/`record_ranges_of_motion` (LeRobot 0.7.0). Volldreher und LeKiwi-Räder: Offset 0 bzw. Homing wie LeRobot, Bereich 0…4095 | gleiche Dateien wie `lerobot-calibrate`, aber ohne dessen zusätzliche EEPROM-Schreibzugriffe |
+| 13.11.2026 | Kalibrierung wird bei Abbrechen, Abgabe des Steuerrechts, Watchdog, Not-Aus und Trennen **zurückgerollt** (alte EEPROM-Werte zurückschreiben). EEPROM-Werte werden nur geschrieben, wenn sie sich ändern. Während der Kalibrierung sind Drehmoment an und Bewegungen gesperrt | Servo und Kalibrierdatei passen immer zusammen |
+| 13.11.2026 | Register-Explorer: Lesen für alle; Schreiben mit Steuerrecht. RAM nur Whitelist (`acceleration`, `goal_velocity`, `torque_limit`); `torque_enable`/`goal_position` nur über Drehmoment-Knöpfe bzw. Schieberegler; EEPROM nur im Expertenmodus mit Rückfrage, über `write_eeprom`. Gesperrt: `id`, `baud_rate` (Phase 5), `homing_offset`, `min/max_position_limit` (Kalibrierung), Register ab Adresse 80 | Vorgabe 6.4, Kalibrierung nicht unterlaufen |
+| 13.11.2026 | Einzelservo: Schieberegler innerhalb der Gelenkgrenzen, Sollwerte höchstens alle 60 ms, jeder über `move_to` (Grenzen, größter Sprung 400). Tempo/Beschleunigung gelten für alle Gelenke des Geräts | einfache, sichere Bedienung |
+| 13.11.2026 | Doku-Schaltflächen `<a class="lab-link">` mit `docs/javascripts/lab.js`: aktiv nur, wenn `/api/info` antwortet (Doku über `so101-lab web`), sonst deaktiviert mit Hinweis | Vorgabe 5.3 |
+| 13.11.2026 | Mock-Korrektur: Ziel und Grenzen in Koordinaten mit Homing-Offset | vorher falsche Simulation mit Kalibrierung |
 
 ---
 
@@ -511,6 +517,7 @@ CLI / Skripte / Web-App
 9. **Netzteil- und Motorvarianten:** Platzhalter in Kapitel 01, füllt der Auftraggeber aus (Phase 3).
 10. ~~safe_state~~ → bleibt `torque_off`, per `arms.toml` umstellbar (siehe Entscheidungslog, Auslegung bitte bestätigen).
 11. ~~Hardware-Abnahme Phase 2~~ → teilweise erledigt: alle sechs Servos antworten (Stand-Zeile). Bewegen am echten Arm steht noch aus.
-12. **Kalibrierung in der Web-App** → kommt in Teilschritt 4b (Auftraggeber). Offen ist nur noch der Weg: Auftraggeber wünscht einen Kalibrierungs-Button mit Anzeige des Dateipfads. Vorschlag von Claude: eine **eigene** Kalibrierung (Mitte → `homing_offset`, Bereich → `range_min/max`, Schreiben über `write_eeprom`, Datei im LeRobot-Format) schon **in Phase 4/5** statt Phase 6 bauen, weil ohne Kalibrierung die Gelenkgrenzen 0…4095 sind und Skripte nur klein und relativ bewegen. Alternative: Web-App ruft `lerobot-calibrate` als Unterprozess auf (der Dialog läuft über `input()`, daher unhandlich, und schreibt beim Verbinden mehr ins EEPROM). Entscheidung offen.
+12. ~~Kalibrierung in der Web-App~~ → umgesetzt in 4b als eigene Kalibrierung (Auftraggeber). Ursprüngliche Abwägung: Auftraggeber wünscht einen Kalibrierungs-Button mit Anzeige des Dateipfads. Vorschlag von Claude: eine **eigene** Kalibrierung (Mitte → `homing_offset`, Bereich → `range_min/max`, Schreiben über `write_eeprom`, Datei im LeRobot-Format) schon **in Phase 4/5** statt Phase 6 bauen, weil ohne Kalibrierung die Gelenkgrenzen 0…4095 sind und Skripte nur klein und relativ bewegen. Alternative: Web-App ruft `lerobot-calibrate` als Unterprozess auf (der Dialog läuft über `input()`, daher unhandlich, und schreibt beim Verbinden mehr ins EEPROM). Entscheidung offen.
 13. **Lernwerte der Bewegung prüfen:** Anfahrt ≥ 2 s und ≤ 300 Schritt/s (≈ 26°/s), Standard `--delta` 200 Schritt (≈ 18°), Aufnahme 30 Hz. Sind sie für die Hardware passend (Follower mit 12 V)? Erst nach den Hardware-Tests zu beantworten.
 14. **Übung 3 (P-Anteil ändern)** braucht ein EEPROM-Schreiben (`p_coefficient`, Adresse 21). Soll dafür ein eigenes, klar gekennzeichnetes Skript kommen (`write_eeprom` mit Rückfrage), oder wird in der Übung `write_eeprom` direkt im Code aufgerufen? Vorschlag: in Phase 10 entscheiden.
+15. **Register ab Adresse 80 am echten Servo:** Ob sie lesbar sind oder ins Timeout laufen (dann dauert „Alle Register lesen“ länger), ist ungeprüft (Adapter war bei 4b nicht angesteckt).
