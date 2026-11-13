@@ -197,7 +197,10 @@ class ArmBackend(abc.ABC):
             raise BackendError(f"Register '{reg.name}' liegt im EEPROM. Nur über write_eeprom() schreiben.")
         if reg.name == "torque_enable" and value not in regs.TORQUE_ENABLE_VALUES:
             raise BackendError("torque_enable darf nur 0 oder 1 sein (128 verstellt die Nullstellung).")
-        reg.encode(int(value))  # prüft den Wertebereich
+        try:
+            reg.encode(int(value))  # prüft den Wertebereich
+        except ValueError as exc:
+            raise BackendError(str(exc)) from exc
         return reg
 
     def read_positions(self, ids: Sequence[int]) -> dict[int, int]:
