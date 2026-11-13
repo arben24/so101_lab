@@ -22,11 +22,6 @@ def test_parser_requires_command():
         build_parser().parse_args([])
 
 
-def test_web_not_yet(capsys):
-    assert main(["web"]) == 2
-    assert "noch nicht umgesetzt" in capsys.readouterr().err
-
-
 def test_scan_and_state_with_mock_device(capsys):
     config = str(ROOT / "config" / "arms.toml")
     assert main(["scan", "--device", "demo", "--config", config]) == 0

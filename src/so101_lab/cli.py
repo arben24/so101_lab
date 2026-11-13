@@ -5,7 +5,7 @@ Unterbefehle:
   ports   listet die USB-Seriell-Ports
   scan    sucht Servos am Bus (IDs, Modell, Baudrate, Firmware)
   state   liest den Zustand aller Gelenke eines Geräts (nur lesend)
-  web     startet die Web-App samt Doku (kommt mit Phase 4)
+  web     startet die Web-App samt Doku
 
 Der Port wird nicht über udev-Regeln festgelegt, sondern bei jedem Aufruf gewählt:
 mit --port, aus config/arms.toml oder interaktiv aus der Liste.
@@ -171,9 +171,38 @@ def _print_state(states, values) -> None:
         )
 
 
-def _not_yet(name: str, phase: int) -> int:
-    print(f"'{name}' ist noch nicht umgesetzt (geplant in Phase {phase}, siehe PLAN.md).", file=sys.stderr)
-    return 2
+LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
+TOKEN_ENV = "SO101_LAB_TOKEN"
+
+
+def cmd_web(args) -> int:
+    import os
+
+    import uvicorn
+
+    from .config import load_config
+    from .web.app import LabServer, create_app
+    from .web.docs_build import build_docs
+
+    load_config(args.config)  # Konfigurationsfehler vor dem Start melden
+    token = args.token or os.environ.get(TOKEN_ENV) or None
+    if args.host not in LOOPBACK_HOSTS and not token:
+        raise CliError(
+            f"Mit --host {args.host} ist die Web-App im Netzwerk erreichbar. Dann ist ein Token Pflicht: "
+            f"--token <geheim> oder Umgebungsvariable {TOKEN_ENV}."
+        )
+    if not 100 <= args.watchdog_ms <= 2000:
+        raise CliError("--watchdog-ms muss zwischen 100 und 2000 liegen.")
+    docs_dir = None if args.no_docs else build_docs()
+    server = LabServer(config_path=args.config, token=token, watchdog_ms=args.watchdog_ms)
+    app = create_app(server, docs_dir=docs_dir)
+    shown = "127.0.0.1" if args.host in ("0.0.0.0", "::") else args.host
+    print(f"so101-lab Web-App: http://{shown}:{args.port}/" + ("  (Token nötig)" if token else ""))
+    if docs_dir:
+        print(f"Doku:              http://{shown}:{args.port}/docs/index.html")
+    print(f"Watchdog {args.watchdog_ms} ms. Strg+C beendet und setzt alle Geräte sicher zurück.", flush=True)
+    uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
+    return 0
 
 
 # ------------------------------------------------------------------ Parser
@@ -207,9 +236,15 @@ def build_parser() -> argparse.ArgumentParser:
     state.add_argument("--config", default=None, help="Pfad zu arms.toml")
     state.add_argument("--watch", action="store_true", help="laufend anzeigen, Ende mit Strg+C")
 
-    web = sub.add_parser("web", help="startet Web-App und Doku (Phase 4)")
-    web.add_argument("--host", default="127.0.0.1", help="Adresse (0.0.0.0 für Netzwerkzugriff)")
+    web = sub.add_parser("web", help="startet Web-App und Doku")
+    web.add_argument(
+        "--host", default="127.0.0.1", help="Adresse (0.0.0.0 für Netzwerkzugriff, dann Token Pflicht)"
+    )
     web.add_argument("--port", type=int, default=8000, help="TCP-Port")
+    web.add_argument("--token", default=None, help=f"Zugriffstoken (sonst Umgebungsvariable {TOKEN_ENV})")
+    web.add_argument("--watchdog-ms", type=int, default=400, help="Watchdog in ms (100–2000, Standard 400)")
+    web.add_argument("--no-docs", action="store_true", help="Doku nicht bauen und nicht einbinden")
+    web.add_argument("--config", default=None, help="Pfad zu arms.toml")
     return parser
 
 
@@ -226,9 +261,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "ports": cmd_ports,
         "scan": cmd_scan,
         "state": cmd_state,
+        "web": cmd_web,
     }
-    if args.command == "web":
-        return _not_yet("web", 4)
     try:
         return commands[args.command](args)
     except (CliError, BackendError, ConfigError) as exc:
