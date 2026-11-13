@@ -501,6 +501,7 @@ CLI / Skripte / Web-App
 | 13.11.2026 | Einzelservo: Schieberegler innerhalb der Gelenkgrenzen, Sollwerte höchstens alle 60 ms, jeder über `move_to` (Grenzen, größter Sprung 400). Tempo/Beschleunigung gelten für alle Gelenke des Geräts | einfache, sichere Bedienung |
 | 13.11.2026 | Doku-Schaltflächen `<a class="lab-link">` mit `docs/javascripts/lab.js`: aktiv nur, wenn `/api/info` antwortet (Doku über `so101-lab web`), sonst deaktiviert mit Hinweis | Vorgabe 5.3 |
 | 13.11.2026 | Mock-Korrektur: Ziel und Grenzen in Koordinaten mit Homing-Offset | vorher falsche Simulation mit Kalibrierung |
+| 13.11.2026 | **Keine blockierenden Browser-Dialoge** (`confirm`, `alert`, `prompt`) im Frontend, stattdessen `<dialog>`. Fehler vom Auftraggeber gefunden: Rückfrage vor „Kalibrierung starten“ hielt das Lebenszeichen an, der Watchdog entzog nach ~420 ms das Steuerrecht. Ein Test prüft `app.js` darauf | blockierende Dialoge stoppen alles JavaScript im Tab |
 
 ---
 
