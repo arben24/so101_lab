@@ -202,6 +202,19 @@ class MockBackend(ArmBackend):
             raise KeyError(f"{len(matches)} Servos mit ID {servo_id} in der Simulation.")
         return matches[0]
 
+    def power_cycle(self) -> None:
+        """Simuliert Netzteil aus und wieder an: Es bleibt nur, was im EEPROM gespeichert ist."""
+        for s in self.servos:
+            s.power_cycle()
+
+    def plug_new_servo(self, baudrate: int = DEFAULT_BAUDRATE, count: int = 1) -> None:
+        """Simuliert „alle Servos abziehen, `count` neue mit ID 1 anstecken“."""
+        self.servos = []
+        for _ in range(count):
+            servo = MockServo.factory_new(1)
+            servo.values["baud_rate"] = servo.persisted["baud_rate"] = regs.baudrates()[baudrate]
+            self.servos.append(servo)
+
     def move_by_hand(self, servo_id: int, position: int) -> None:
         """Simuliert, dass jemand den Servo (ohne Drehmoment) von Hand verstellt."""
         s = self.servo(servo_id)

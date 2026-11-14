@@ -102,6 +102,7 @@ class ArmBackend(abc.ABC):
 
     name: str = "abstract"
     capabilities: frozenset[Capability] = frozenset()
+    baudrate: int = DEFAULT_BAUDRATE  # aktuelle Baudrate des Ports
 
     # ------------------------------------------------------------ Verbindung
 
@@ -160,6 +161,23 @@ class ArmBackend(abc.ABC):
 
     def _set_port_baudrate(self, baudrate: int) -> None:
         raise NotSupportedError(f"Das Backend '{self.name}' kann die Baudrate nicht umstellen.")
+
+    def _write_id(self, old_id: int, new_id: int) -> None:
+        """Sperre öffnen und die neue ID schreiben. Der Servo quittiert noch unter der alten ID."""
+        self._write(old_id, "lock", 0)
+        self._write(old_id, "id", new_id)
+
+    def _write_baudrate(self, servo_id: int, baudrate: int) -> None:
+        """Sperre öffnen und die Baudrate schreiben. Der Servo quittiert noch bei der alten Rate."""
+        self._write(servo_id, "lock", 0)
+        self._write(servo_id, "baud_rate", regs.baudrates()[baudrate])
+
+    def set_port_baudrate(self, baudrate: int) -> None:
+        """Nur den Port umstellen, nicht den Servo. Für Scan und Einrichtung."""
+        self.require(Capability.SCAN_BAUDRATES)
+        if baudrate not in regs.baudrates():
+            raise BackendError(f"Baudrate {baudrate} nicht möglich. Erlaubt: {sorted(regs.baudrates())}.")
+        self._set_port_baudrate(baudrate)
 
     # ------------------------------------------------------------ öffentliche Zugriffe
 
@@ -273,8 +291,7 @@ class ArmBackend(abc.ABC):
             raise BackendError(f"ID {new_id} ist bereits belegt. Nur einen Servo anschließen.")
         logger.info("EEPROM: ID %d → %d", old_id, new_id)
         self.set_torque([old_id], False)
-        self._write(old_id, "lock", 0)
-        self._write(old_id, "id", new_id)
+        self._write_id(old_id, new_id)
         self._write(new_id, "lock", 1)
         if self.ping(new_id) != model:
             raise VerificationError(f"Servo antwortet nach dem Umstellen nicht unter ID {new_id}.")
@@ -296,8 +313,7 @@ class ArmBackend(abc.ABC):
             raise ServoNotRespondingError(f"Kein Servo unter ID {servo_id}.")
         logger.info("EEPROM: Servo %d, Baudrate → %d", servo_id, baudrate)
         self.set_torque([servo_id], False)
-        self._write(servo_id, "lock", 0)
-        self._write(servo_id, "baud_rate", table[baudrate])
+        self._write_baudrate(servo_id, baudrate)
         self._set_port_baudrate(baudrate)
         self._write(servo_id, "lock", 1)
         if self.ping(servo_id) != model:

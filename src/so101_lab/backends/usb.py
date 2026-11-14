@@ -83,6 +83,27 @@ class UsbBackend(ArmBackend):
         self.bus.set_baudrate(baudrate)
         self.baudrate = baudrate
 
+    # ID und Baudrate wie LeRobot (`SerialMotorsBus.setup_motor`) über rustypot: Dort ist der
+    # Ablauf (Drehmoment aus, Sperre auf, schreiben) für Feetech fertig und getestet.
+
+    def _write_id(self, old_id: int, new_id: int) -> None:
+        try:
+            self.bus.change_id(regs.definition(), old_id, new_id)
+        except (RuntimeError, OSError) as exc:
+            raise ServoNotRespondingError(
+                f"Servo {old_id}: ID-Wechsel auf {new_id} nicht bestätigt ({exc})."
+            ) from exc
+
+    def _write_baudrate(self, servo_id: int, baudrate: int) -> None:
+        try:
+            self.bus.change_baudrate(regs.definition(), servo_id, baudrate)
+        except (RuntimeError, OSError) as exc:
+            raise ServoNotRespondingError(
+                f"Servo {servo_id}: Wechsel auf {baudrate} Baud nicht bestätigt ({exc})."
+            ) from exc
+        except ValueError as exc:
+            raise BackendError(f"Baudrate {baudrate} nicht möglich: {exc}") from exc
+
     # ------------------------------------------------------------ Scan
 
     def scan(
