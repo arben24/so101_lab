@@ -78,3 +78,13 @@ def list_serial_ports(usb_only: bool = True) -> list[SerialPortInfo]:
         if not (p.device.startswith("/dev/tty.") and p.device.replace("/dev/tty.", "/dev/cu.") in devices)
     ]
     return sorted(ports, key=lambda p: p.device)
+
+
+def adapter_serial(device: str | None) -> str | None:
+    """Seriennummer des USB-Adapters an diesem Port (für Protokolle), sonst None."""
+    if not device:
+        return None
+    try:
+        return next((p.serial_number for p in list_serial_ports() if p.device == device), None)
+    except Exception:  # Portliste ist nur Zusatzinfo
+        return None

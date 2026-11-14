@@ -25,3 +25,8 @@ def default_config_path() -> Path:
 
 def calibration_root() -> Path:
     return project_root() / "calibration"
+
+
+def servo_setup_log_path() -> Path:
+    """Protokoll der ID-Vergabe (eine CSV-Zeile je Schritt), liegt mit im Repo."""
+    return project_root() / "logs" / "servo_ids.csv"

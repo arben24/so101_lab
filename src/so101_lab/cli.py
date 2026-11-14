@@ -227,7 +227,7 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument("--port", default=None, help="serieller Port, z. B. /dev/ttyACM0 oder COM3")
     scan.add_argument("--device", default=None, help="Gerät aus arms.toml statt eines Ports (z. B. demo)")
     scan.add_argument("--config", default=None, help="Pfad zu arms.toml")
-    scan.add_argument("--all-baudrates", action="store_true", help="alle Baudraten durchsuchen (ca. 7 s)")
+    scan.add_argument("--all-baudrates", action="store_true", help="alle Baudraten durchsuchen (ca. 8 s)")
     scan.add_argument("--ids", default=None, help="nur diese IDs, z. B. 1-6,9")
 
     state = sub.add_parser("state", help="liest den Zustand aller Gelenke (verändert nichts)")

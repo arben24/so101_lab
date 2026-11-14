@@ -1,28 +1,35 @@
-"""05 – Einem neuen Servo seine Gelenk-ID geben (schreibt ins EEPROM!).
+"""05 – Einem neuen Servo seine Gelenk-ID oder eine freie ID geben (schreibt ins EEPROM!).
 
 Aufruf (genau EIN Servo am Bus):
     uv run scripts/05_set_servo_id.py --gelenk gripper
     uv run scripts/05_set_servo_id.py --gelenk elbow_flex --port /dev/ttyACM0
+    uv run scripts/05_set_servo_id.py --id 12        # freie ID, z. B. Ersatzservo, eigener Aufbau
+
+Dasselbe mit Oberfläche: Web-App, Reiter „Einrichtung“ (`uv run so101-lab web`).
 
 Warum nur ein Servo? Neue STS3215 haben alle die Werks-ID 1. Hängen zwei am Bus,
 antworten beide gleichzeitig, die Antworten überlagern sich, und man kann keinen von beiden
 gezielt ansprechen. Deshalb gilt: **einen Servo anschließen, ID setzen, abziehen, nächster.**
-Das Skript bricht ab, wenn es nicht genau einen Servo findet.
 
-Was hier passiert:
-1. Den Bus bei 1 000 000 Baud nach allen IDs (0–253) absuchen. Gefunden werden muss genau ein Servo.
+Was hier passiert (der Ablauf steht in `so101_lab/servo_setup.py`, die Web-App benutzt ihn auch):
+1. Den Bus bei allen Baudraten nach allen IDs (0–253) absuchen (ca. 8 s). Gefunden werden
+   muss genau ein Servo.
 2. Die Soll-ID kommt aus der Gelenktabelle (Kapitel 01): `--gelenk gripper` → ID 6.
-3. Nach Rückfrage `change_id()`: Drehmoment aus → EEPROM entsperren (lock = 0) → neue ID
-   schreiben → sperren (lock = 1) → Ping unter der neuen ID → prüfen, dass die alte ID
-   nicht mehr antwortet. Schlägt eine Prüfung fehl, meldet das Skript es als Fehler.
-4. Der Servo behält die ID dauerhaft, auch nach dem Ausschalten.
+   Oder direkt als Zahl: `--id 12` (0–253).
+3. Vor dem Schreiben den Servo zehnmal lesen. Wackeln die Antworten, hängen vermutlich
+   zwei Servos mit derselben ID am Bus: Abbruch.
+4. Nach Rückfrage: `change_id()` (Drehmoment aus → EEPROM entsperren → neue ID schreiben →
+   sperren → Ping unter der neuen ID → alte ID muss frei sein). Läuft der Servo nicht mit
+   1 Mbit/s, danach `change_baudrate()` auf 1 000 000. Reihenfolge wie bei LeRobot.
+5. Prüfen: Register `id` und `baud_rate` zurücklesen, bei 1 Mbit/s suchen.
+6. Eine Zeile ins Protokoll `logs/servo_ids.csv` schreiben.
 
 Reihenfolge wie bei LeRobot: erst Greifer (6), dann zurück bis zur Schulter (1).
 Beschriften! Einen Aufkleber mit der ID auf den Servo kleben spart später viel Suchen.
 
-Das Skript ändert nur die ID, **nicht** die Baudrate. Antwortet ein Servo nur bei einer
-anderen Baudrate, meldet es das und bricht ab (die Baudrate-Umstellung kommt mit dem
-Assistenten in der Web-App).
+Empfohlen danach: Netzteil aus und wieder an, dann `uv run so101-lab scan --port …`. Steht der
+Servo dort unter der neuen ID, ist sie dauerhaft gespeichert (die Web-App hat dafür die
+„Neustart-Probe“).
 
 Sicherheit: Nur mit einem Servo am Bus. Servo vorher nicht mechanisch einbauen oder belasten.
 
@@ -34,69 +41,60 @@ from __future__ import annotations
 
 import argparse
 
-from so101_lab import registers as regs
 from so101_lab.backends import create_backend
-from so101_lab.backends.base import DEFAULT_BAUDRATE, BackendError
+from so101_lab.backends.base import BackendError
 from so101_lab.config import load_config
 from so101_lab.devices import get_device_spec
+from so101_lab.ports import adapter_serial
 from so101_lab.script_support import add_device_arguments, confirm, resolve_port, run_script
+from so101_lab.servo_setup import ServoSetup, describe
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Servo-ID setzen (EEPROM, genau ein Servo am Bus).")
     add_device_arguments(parser)
-    parser.add_argument("--gelenk", required=True, help="Gelenk, dessen ID der Servo bekommen soll")
+    ziel = parser.add_mutually_exclusive_group(required=True)
+    ziel.add_argument("--gelenk", help="Gelenk, dessen ID der Servo bekommen soll")
+    ziel.add_argument("--id", type=int, help="freie ID (0–253) statt eines Gelenks")
     args = parser.parse_args(argv)
 
     cfg = load_config(args.config).device(args.device)
-    spec = get_device_spec(cfg.type)
-    target = spec.joint(args.gelenk)
+    if args.gelenk is not None:
+        try:
+            get_device_spec(cfg.type).joint(args.gelenk)  # Tippfehler sofort melden, vor der Suche
+        except KeyError as exc:
+            raise BackendError(str(exc.args[0])) from None
     port = resolve_port(args)
     backend = create_backend(cfg, port)
 
     with backend:  # schließt den Port am Ende, auch bei Fehlern
-        # Schritt 1: Bus absuchen. Zuerst die Standard-Baudrate, dann alle (dauert ca. 8 s).
-        print(f"Suche Servos an {port or args.device} bei {DEFAULT_BAUDRATE} Baud …")
-        found = backend.scan()
-        if not found:
-            print("Nichts gefunden, suche bei allen Baudraten (ca. 8 s) …")
-            found = backend.scan(baudrates=sorted(regs.baudrates(), reverse=True))
-        if not found:
-            raise BackendError("Kein Servo antwortet. Servo-Netzteil an? Kabel gesteckt?")
-        if len(found) > 1:
-            ids = ", ".join(str(s.id) for s in found)
-            raise BackendError(
-                f"Es antworten {len(found)} Servos (IDs {ids}). Für die ID-Vergabe darf nur EIN Servo "
-                "am Bus hängen. Alle anderen abziehen und noch einmal starten."
-            )
-        servo = found[0]
-        print(
-            f"Gefunden: ID {servo.id}, {servo.model_name}, {servo.baudrate} Baud, "
-            f"Firmware {servo.firmware or '?'}"
-        )
-        if servo.baudrate != DEFAULT_BAUDRATE:
-            raise BackendError(
-                f"Der Servo antwortet bei {servo.baudrate} Baud statt {DEFAULT_BAUDRATE}. "
-                "Dieses Skript ändert nur die ID. Die Baudrate bitte mit lerobot-setup-motors oder "
-                "dem Assistenten in der Web-App umstellen."
-            )
+        setup = ServoSetup(backend, cfg.type, port=port, adapter_sn=adapter_serial(port))
+        target = setup.target(args.gelenk, args.id)  # prüft auch den Bereich der freien ID
 
-        # Schritt 2: Soll-ID aus der Gelenktabelle
-        if servo.id == target.motor_id:
-            print(f"Der Servo hat schon die ID {target.motor_id} ({target.name}). Nichts zu tun.")
+        # Schritt 1: Bus absuchen, alle Baudraten
+        print(f"Suche Servos an {port or args.device} bei allen Baudraten (ca. 8 s) …")
+        for found in setup.scan():
+            print(f"  gefunden: {describe(found)}")
+        setup.single()  # Abbruch mit Erklärung, wenn es nicht genau einer ist
+
+        # Schritt 2: Was würde sich ändern?
+        plan = setup.plan(servo_id=target.id)
+        if not plan:
+            print(f"Der Servo hat schon {target.label} und 1 Mbit/s. Nichts zu tun.")
             return 0
-        print(
-            f"\nGeplant: ID {servo.id} → {target.motor_id} ({target.name}). "
-            "Das wird dauerhaft in den Servo geschrieben."
-        )
-        if not confirm("ID jetzt schreiben?"):
+        print("\nGeplant: " + ", ".join(plan) + ". Das wird dauerhaft in den Servo geschrieben.")
+        if not confirm("Jetzt schreiben?"):
             print("Abgebrochen, nichts geschrieben.")
             return 1
 
-        # Schritt 3: change_id() schreibt und prüft. Fehler kommen als Ausnahme zurück.
-        backend.change_id(servo.id, target.motor_id)
-        print(f"Fertig und geprüft: Der Servo antwortet unter ID {target.motor_id}, die alte ID ist frei.")
-        print(f"Jetzt beschriften: „{target.motor_id} {target.name}“. Dann den nächsten Servo anschließen.")
+        # Schritte 3–6: probieren, schreiben, prüfen, protokollieren
+        result = setup.assign(servo_id=target.id)
+        for check in result.checks:
+            print(f"  {'✔' if check.ok else '✘'} {check.text}")
+        print(f"Protokoll: {setup.log_path}")
+        if not result.ok:
+            raise BackendError(result.message)
+        print(f"Fertig und geprüft. {result.message}")
     return 0
 
 

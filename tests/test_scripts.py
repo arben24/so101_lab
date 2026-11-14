@@ -181,6 +181,31 @@ def test_05_blocks_with_several_servos():
         run(module, "--gelenk", "gripper")
 
 
+def test_05_sets_baudrate_and_logs(monkeypatch, capsys, isolated):
+    module = load_script("05")
+    servo = MockServo.factory_new(1)
+    servo.values["baud_rate"] = servo.persisted["baud_rate"] = regs.baudrates()[115_200]
+    bus = MockBackend([servo])
+    monkeypatch.setattr(module, "create_backend", lambda cfg, port=None: bus)
+    monkeypatch.setattr(module, "confirm", lambda question: True)
+    assert run(module, "--gelenk", "elbow_flex") == 0
+    assert servo.id == 3 and servo.baudrate == 1_000_000
+    out = capsys.readouterr().out
+    assert "Baudrate 115200 → 1000000" in out and "✘" not in out
+    log = (isolated / "logs" / "servo_ids.csv").read_text(encoding="utf-8")
+    assert "id_gesetzt,ok,so101_follower,elbow_flex,1,115200,3,1000000" in log
+
+
+def test_05_blocks_two_servos_with_same_id(monkeypatch):
+    module = load_script("05")
+    bus = MockBackend([MockServo.factory_new(1), MockServo.factory_new(1)])
+    monkeypatch.setattr(module, "create_backend", lambda cfg, port=None: bus)
+    monkeypatch.setattr(module, "confirm", lambda question: True)
+    with pytest.raises(BackendError, match="unzuverlässig"):
+        run(module, "--gelenk", "gripper")
+    assert [s.id for s in bus.servos] == [1, 1]
+
+
 def test_05_does_nothing_if_id_is_already_correct(monkeypatch, capsys):
     module = load_script("05")
     bus = one_servo_backend(servo_id=6)
@@ -249,3 +274,21 @@ def test_07_rejects_start_pose_outside_limits(isolated):
 def test_07_missing_recording():
     with pytest.raises(TrajectoryError, match="nicht gefunden"):
         run(load_script("07"), "--name", "gibtsnicht", "--ohne-warten")
+
+
+def test_05_free_id(monkeypatch, capsys):
+    module = load_script("05")
+    bus = one_servo_backend()
+    monkeypatch.setattr(module, "create_backend", lambda cfg, port=None: bus)
+    monkeypatch.setattr(module, "confirm", lambda question: True)
+    assert run(module, "--id", "17") == 0
+    assert [s.id for s in bus.servos] == [17]
+    assert "ID 1 → 17" in capsys.readouterr().out
+
+
+def test_05_needs_joint_or_id():
+    module = load_script("05")
+    with pytest.raises(SystemExit):
+        run(module)
+    with pytest.raises(SystemExit):
+        run(module, "--gelenk", "gripper", "--id", "3")
