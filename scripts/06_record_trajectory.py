@@ -11,7 +11,9 @@ Was hier passiert:
    Gelenke gelesen: ein Sync-Read je Abtastung, also ein Buspaket für alle Servos.
 3. Die Aufnahme endet nach `--dauer` Sekunden oder früher mit Strg+C. Beides speichert.
 4. Gespeichert wird nach `recordings/trajectories/<name>.csv` (Zeit und Rohwerte) und
-   `<name>.json` (Beschreibung, Kalibrierungsbezug, tatsächlich erreichte Abtastrate).
+   `<name>.json` (Beschreibung, Kalibrierung, tatsächlich erreichte Abtastrate).
+
+Dasselbe mit Oberfläche: Web-App, Reiter „Aufnahmen“.
 
 Der Takt wird nicht durch `sleep(1/rate)` erzeugt, sondern gegen einen festen Zeitplan
 (`t0 + i / rate`). So summieren sich Verzögerungen nicht auf. Schafft der Bus die Rate nicht,
@@ -31,6 +33,7 @@ import time
 from pathlib import Path
 
 from so101_lab.backends.base import BackendError
+from so101_lab.motion import calibration_to_dict
 from so101_lab.paths import project_root
 from so101_lab.safety import open_arm
 from so101_lab.script_support import add_device_arguments, resolve_port, run_script
@@ -56,6 +59,10 @@ def main(argv: list[str] | None = None) -> int:
     port = resolve_port(args)
     with open_arm(args.device, port=port, config_path=args.config) as arm:
         joints = [j.name for j in arm.spec.position_joints]  # Räder (LeKiwi) werden nicht aufgenommen
+
+        # Homing-Offsets merken: Der Servo meldet Rohwert = Stellung − Offset. Wird später neu
+        # kalibriert, kann das Abspielen den geänderten Offset herausrechnen.
+        offsets = arm.read_homing_offsets(joints)
 
         # Schritt 1: Torque aus. Ab jetzt trägt der Servo den Arm nicht mehr.
         arm.disable_torque(joints)
@@ -98,7 +105,13 @@ def main(argv: list[str] | None = None) -> int:
             "device_type": arm.spec.type,
             "calibration_id": arm.cfg.calibration_id,
             "calibration_file": _relative(arm.calibration_path),
+            # Die Kalibrierung selbst: Damit lässt sich die Aufnahme auf einem anderen Arm abspielen
+            # (Umrechnung über Grad/Prozent, siehe so101_lab/motion.py).
+            "calibration": calibration_to_dict(arm.calibration),
+            "homing_offsets": offsets,
             "target_rate_hz": args.rate,
+            "source": "von Hand geführt (Drehmoment aus)",
+            "recorded_with": "skript_06",
         },
     )
     csv_path, json_path = save_trajectory(trajectory, overwrite=args.ueberschreiben)

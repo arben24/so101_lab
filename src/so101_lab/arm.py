@@ -101,6 +101,15 @@ class Arm:
         raw = self.backend.read_state(list(ids.values()))
         return {name: raw[i] for name, i in ids.items()}
 
+    def read_homing_offsets(self, names: Iterable[str] | None = None) -> dict[str, int]:
+        """Homing-Offsets aus dem EEPROM der Servos. Rohwert = tatsächliche Stellung − Offset.
+
+        Aufnahmen speichern sie, damit ein späterer Offset (neu kalibriert) herausgerechnet werden kann.
+        """
+        ids = self._ids(names, JointMode.POSITION)
+        raw = self.backend.sync_read(list(ids.values()), "homing_offset")
+        return {name: raw[i] for name, i in ids.items()}
+
     def to_joint_values(self, positions: dict[str, int]) -> dict[str, float | None]:
         """Rohwerte → Grad bzw. Prozent (wie LeRobot). `None`, wenn das Gelenk nicht kalibriert ist."""
         result: dict[str, float | None] = {}

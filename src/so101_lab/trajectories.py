@@ -13,7 +13,9 @@ CSV (Rohwerte in Servo-Schritten, 4096 Schritt = 360°):
 
 Rohwerte statt Grad, weil sie ohne Kalibrierung aufgenommen werden können und beim
 Abspielen exakt dieselben Sollwerte ergeben. Die Kalibrierung steht im JSON, damit man
-sie später zuordnen kann. Die Phase 6 baut Bibliothek und Web-Recorder auf diesem Format auf.
+sie später zuordnen kann. Seit Phase 6 steht dort auch die Kalibrierung selbst (`calibration`),
+damit sich die Aufnahme auf einem anderen Arm über Grad/Prozent abspielen lässt (`motion.py`).
+Web-Recorder und Bibliothek der Web-App benutzen dasselbe Format.
 """
 
 from __future__ import annotations
@@ -40,6 +42,59 @@ def default_directory() -> Path:
     return project_root() / "recordings" / "trajectories"
 
 
+def check_name(name: str) -> str:
+    """Name prüfen. Nur Buchstaben, Ziffern, '_' und '-': So kann kein Name aus dem Browser
+    einen Pfad außerhalb von recordings/trajectories/ ergeben."""
+    if not _NAME.match(name or ""):
+        raise TrajectoryError(f"Name '{name}' ungültig. Erlaubt sind Buchstaben, Ziffern, '_' und '-'.")
+    return name
+
+
+def check_new_name(name: str, directory: Path | None = None, overwrite: bool = False) -> str:
+    """Name prüfen und sicherstellen, dass es die Aufnahme noch nicht gibt (außer `overwrite`)."""
+    check_name(name)
+    directory = directory or default_directory()
+    if not overwrite and ((directory / f"{name}.csv").exists() or (directory / f"{name}.json").exists()):
+        raise TrajectoryError(f"'{name}' gibt es schon. Anderen Namen wählen.")
+    return name
+
+
+def list_trajectories(directory: Path | None = None) -> list[dict[str, Any]]:
+    """Alle Aufnahmen mit ihrer Beschreibung (aus dem JSON), neueste zuerst."""
+    directory = directory or default_directory()
+    items = []
+    for csv_path in directory.glob("*.csv") if directory.is_dir() else []:
+        if not _NAME.match(csv_path.stem):
+            continue
+        json_path = csv_path.with_suffix(".json")
+        meta: dict[str, Any] = {}
+        if json_path.exists():
+            try:
+                meta = json.loads(json_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                meta = {"error": "Beschreibung nicht lesbar"}
+        meta.pop("calibration", None)  # nur für das Abspielen, in Listen zu lang
+        items.append(
+            {
+                **meta,
+                "name": csv_path.stem,
+                "modified": csv_path.stat().st_mtime,
+                "size_bytes": csv_path.stat().st_size,
+            }
+        )
+    return sorted(items, key=lambda item: item["modified"], reverse=True)
+
+
+def delete_trajectory(name: str, directory: Path | None = None) -> None:
+    check_name(name)
+    directory = directory or default_directory()
+    csv_path = directory / f"{name}.csv"
+    if not csv_path.exists():
+        raise TrajectoryError(f"Aufnahme '{name}' nicht gefunden.")
+    csv_path.unlink()
+    csv_path.with_suffix(".json").unlink(missing_ok=True)
+
+
 @dataclass
 class Trajectory:
     name: str
@@ -60,10 +115,7 @@ class Trajectory:
         return (len(self.times) - 1) / self.duration_s
 
     def validate(self) -> None:
-        if not _NAME.match(self.name):
-            raise TrajectoryError(
-                f"Name '{self.name}' ungültig. Erlaubt sind Buchstaben, Ziffern, '_' und '-'."
-            )
+        check_name(self.name)
         if not self.joints:
             raise TrajectoryError("Die Aufnahme enthält keine Gelenke.")
         if len(self.times) < 2:

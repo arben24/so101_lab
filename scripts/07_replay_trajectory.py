@@ -6,8 +6,14 @@ Aufruf:
     uv run scripts/07_replay_trajectory.py --name probe --device demo --ohne-warten
 
 Was hier passiert:
-1. Die Aufnahme (`recordings/trajectories/<name>.csv`) wird geladen und geprüft: Passen die
-   Gelenke zum Gerät? Liegt die Startpose innerhalb der Gelenkgrenzen?
+1. Die Aufnahme (`recordings/trajectories/<name>.csv`) wird geladen, für dieses Gerät
+   umgerechnet und geprüft: Passen die Gelenke zum Gerät? Werte außerhalb der Gelenkgrenzen
+   werden begrenzt und gemeldet; liegt schon die Startpose weit (> 400 Schritt) außerhalb, passt
+   die Aufnahme nicht zum Arm und das Skript bricht ab. Umgerechnet wird, wenn die Aufnahme
+   von einem anderen Arm stammt: Zwei Arme haben für dieselbe Stellung verschiedene Rohwerte.
+   Mit beiden Kalibrierungen geht es über Grad/Prozent (wie bei LeRobot), sonst werden die
+   Rohwerte unverändert übernommen. Haben sich die Homing-Offsets der Servos seit der Aufnahme
+   geändert (neu kalibriert), wird das herausgerechnet.
 2. Tempo- und Beschleunigungsgrenze werden gesetzt, **bevor** ein Ziel geschrieben wird.
 3. **Sanfte Anfahrt:** Der Arm steht irgendwo, die Aufnahme beginnt woanders. Ein direkter
    Sprung zur Startpose wäre ruckartig. Deshalb fährt das Skript in mindestens 2 s mit
@@ -21,6 +27,8 @@ Was hier passiert:
 Zur Aufnahme gehört das Gerät, mit dem sie gemacht wurde. Eine Aufnahme vom Leader lässt
 sich auf dem Follower abspielen (gleiche Gelenknamen), vorausgesetzt beide sind kalibriert.
 
+Dasselbe mit Oberfläche: Web-App, Reiter „Aufnahmen“ (dort mit Fortschritt und Stopp-Knopf).
+
 Sicherheit: Arbeitsbereich freihalten, Hand am Netzteil-Schalter. Zum ersten Mal mit
 `--speed 0.3` probieren.
 
@@ -33,6 +41,7 @@ import argparse
 import time
 
 from so101_lab.backends.base import BackendError
+from so101_lab.motion import prepare_playback
 from so101_lab.safety import open_arm
 from so101_lab.script_support import add_device_arguments, confirm, resolve_port, run_script
 from so101_lab.trajectories import load_trajectory
@@ -71,20 +80,25 @@ def main(argv: list[str] | None = None) -> int:
 
     port = resolve_port(args)
     with open_arm(args.device, port=port, config_path=args.config) as arm:
-        # Schritt 1: Prüfen
-        known = {j.name for j in arm.spec.position_joints}
-        unknown = [j for j in traj.joints if j not in known]
-        if unknown:
-            raise BackendError(f"Das Gerät '{args.device}' hat keine Gelenke {unknown}. Falsche Aufnahme?")
-        joints = list(traj.joints)
-        start = dict(zip(joints, traj.positions[0], strict=True))
-        for name, value in start.items():
-            low, high = arm.limits(name)
-            if not low <= value <= high:
-                raise BackendError(
-                    f"Startpose: {name} = {value} liegt außerhalb der Gelenkgrenzen {low}…{high}. "
-                    "Anderes Gerät oder andere Kalibrierung?"
-                )
+        # Schritt 1: Umrechnen und prüfen (Gelenke, Startpose in den Grenzen)
+        # Werte außerhalb der Gelenkgrenzen werden begrenzt und gemeldet; Homing-Offsets, die sich
+        # seit der Aufnahme geändert haben, werden herausgerechnet (siehe so101_lab/motion.py).
+        try:
+            plan = prepare_playback(
+                traj,
+                arm.spec,
+                arm.calibration,
+                arm.limits,
+                arm.cfg.calibration_id,
+                current_offsets=arm.read_homing_offsets(),
+            )
+        except ValueError as exc:
+            raise BackendError(str(exc)) from None
+        joints, rows = plan.joints, plan.rows
+        print(f"Umrechnung: {plan.converter.describe()}.")
+        for note in plan.notes:
+            print(f"Hinweis: {note}")
+        start = rows[0]
         if not arm.is_calibrated:
             print("Hinweis: keine Kalibrierung gefunden, Grenzen sind der volle Bereich 0…4095.")
 
@@ -116,11 +130,11 @@ def main(argv: list[str] | None = None) -> int:
         # Schritt 4: Abspielen nach den Zeitstempeln der Aufnahme
         print("Spiele ab, Strg+C bricht ab …")
         t0 = time.monotonic()
-        for t, row in zip(traj.times, traj.positions, strict=True):
+        for t, row in zip(traj.times, rows, strict=True):
             wait = t0 + t / args.speed - time.monotonic()
             if wait > 0:
                 time.sleep(wait)
-            arm.move_to(dict(zip(joints, row, strict=True)))
+            arm.move_to(row)
         print("Fertig.")
     return 0
 
