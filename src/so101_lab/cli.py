@@ -4,6 +4,7 @@ Unterbefehle:
   doctor  prüft die Umgebung (Version, Ports, Rechte, Kameras)
   ports   listet die USB-Seriell-Ports
   scan    sucht Servos am Bus (IDs, Modell, Baudrate, Firmware)
+  cameras sucht Kameras und zeigt einen Eintrag für arms.toml
   state   liest den Zustand aller Gelenke eines Geräts (nur lesend)
   web     startet die Web-App samt Doku
 
@@ -85,6 +86,36 @@ def cmd_ports(_args) -> int:
         print("Kein USB-Seriell-Port gefunden.")
         return 1
     print(_port_lines(ports))
+    return 0
+
+
+def cmd_cameras(_args) -> int:
+    """Kameras suchen, jede kurz öffnen und einen Eintrag für arms.toml vorschlagen."""
+    from .cameras import find_cameras
+
+    found = find_cameras()
+    usable = [c for c in found if c.get("delivers_frames")]
+    for cam in found:
+        if cam.get("delivers_frames"):
+            size = f"{cam['width']}×{cam['height']} @ {cam['fps']} ({cam['fourcc']})"
+            print(f"{cam['device']}: liefert Bilder, {size}")
+            if cam["source"] != cam["device"]:
+                print(f"    fester Name: {cam['source']}")
+        elif cam.get("in_use"):
+            print(f"{cam['device']}: wird gerade benutzt")
+        else:
+            why = cam.get("error", "liefert keine Bilder (oft der Metadaten-Knoten einer USB-Kamera)")
+            print(f"{cam['device']}: {why}")
+    if not usable:
+        print("Keine Kamera gefunden, die Bilder liefert.")
+        return 1
+    print("\nEintrag für config/arms.toml (beim Gerät):")
+    names = ["front" if i == 0 else f"cam{i}" for i in range(len(usable))]
+    entries = ", ".join(
+        f'{{ name = "{n}", source = "{c["source"]}", width = 640, height = 480, fps = 30 }}'
+        for n, c in zip(names, usable, strict=True)
+    )
+    print(f"cameras = [{entries}]")
     return 0
 
 
@@ -230,6 +261,8 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument("--all-baudrates", action="store_true", help="alle Baudraten durchsuchen (ca. 8 s)")
     scan.add_argument("--ids", default=None, help="nur diese IDs, z. B. 1-6,9")
 
+    sub.add_parser("cameras", help="sucht Kameras und schlägt einen Eintrag für arms.toml vor")
+
     state = sub.add_parser("state", help="liest den Zustand aller Gelenke (verändert nichts)")
     state.add_argument("device", help="Gerätename aus arms.toml, z. B. follower oder demo")
     state.add_argument("--port", default=None, help="Port statt des Eintrags in arms.toml")
@@ -260,6 +293,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "doctor": lambda a: run_doctor(config_path=a.config),
         "ports": cmd_ports,
         "scan": cmd_scan,
+        "cameras": cmd_cameras,
         "state": cmd_state,
         "web": cmd_web,
     }

@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .cameras import CameraError, CameraSpec, parse_cameras
 from .devices import DEVICE_TYPES
 from .paths import default_config_path
 
@@ -37,7 +38,7 @@ class DeviceConfig:
     address: str | None = None  # remote/esp32
     token_env: str | None = None  # remote: Name der Umgebungsvariable mit dem Token
     calibration_dir: Path | None = None
-    cameras: list[dict[str, Any]] = field(default_factory=list)
+    cameras: list[CameraSpec] = field(default_factory=list)  # siehe so101_lab/cameras.py
     # Was beim Beenden oder bei einem Fehler mit dem Arm passiert:
     #   torque_off  Drehmoment aus (wie LeRobot). Der Arm sinkt unter seinem Gewicht ab.
     #   hold        Stellung halten, Drehmoment bleibt an.
@@ -84,6 +85,10 @@ def _parse_device(raw: dict[str, Any], index: int) -> DeviceConfig:
     data.setdefault("calibration_id", raw["name"])
     if "calibration_dir" in data:
         data["calibration_dir"] = Path(data["calibration_dir"]).expanduser()
+    try:
+        data["cameras"] = parse_cameras(data.get("cameras", []), where)
+    except CameraError as exc:
+        raise ConfigError(str(exc)) from None
     cfg = DeviceConfig(**data)
     if cfg.safe_state not in SAFE_STATES:
         raise ConfigError(

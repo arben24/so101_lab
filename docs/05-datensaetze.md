@@ -8,11 +8,11 @@ Es gibt zwei Arten, Bewegungen festzuhalten:
 | Dateien | `recordings/trajectories/<name>.csv` und `.json` | Parquet-Tabellen und Videos (Format v3.0) |
 | Wozu | ansehen, auswerten, abspielen, glätten | Policies trainieren (`lerobot-train`) |
 | Kamera | nein | ja |
-| Stand | fertig (Kapitel [Bewegungen](04-bewegungen.md) und hier) | folgt in Ausbaustufe 6b |
+| Wo | Reiter **Aufnahmen**, Skripte 06/07 | Reiter **Datensätze** |
 
 Dieses Kapitel beschreibt zuerst Aufnahmen in der Web-App: von Hand geführt, mit Teleoperation, die
 Bibliothek und das Abspielen. Das Dateiformat und die Rechnung dahinter stehen in Kapitel
-[Bewegungen](04-bewegungen.md).
+[Bewegungen](04-bewegungen.md). Danach kommen Kameras und LeRobot-Datasets (Abschnitte 6 bis 8).
 
 ## 1. Der Reiter „Aufnahmen“
 
@@ -103,10 +103,129 @@ geänderten Offset heraus. Ältere Aufnahmen ohne diese Angabe bekommen einen Hi
 !!! warning "Vor dem Abspielen"
     Arbeitsbereich freihalten, beim ersten Mal Tempo 0,3. Esc löst im Browser den Not-Aus aus.
 
-## 6. LeRobot-Datasets mit Kamera
+## 6. Kameras
 
-!!! note "Folgt in Ausbaustufe 6b"
-    Aufnahmen mit Kamera als LeRobot-Dataset (Format v3.0) kommen, sobald eine Kamera am Laborrechner
-    angeschlossen ist. Wichtig schon jetzt, wenn man `lerobot-record` direkt benutzt: Es lädt in der
-    Standardeinstellung zum Hugging Face Hub hoch. Für den Laborbetrieb immer
-    `--dataset.push_to_hub=false` und ein lokales `--dataset.root=recordings/datasets/<name>` angeben.
+Kameras gehören zu einem Gerät und stehen in `config/arms.toml`:
+
+```toml
+[[device]]
+name = "follower"
+# …
+cameras = [
+  { name = "front", source = "/dev/v4l/by-id/usb-Generic_FULL_HD_1080P_Webcam_200901010001-video-index0" },
+]
+```
+
+| Schlüssel | Bedeutung | Standard |
+|---|---|---|
+| `name` | Name im Dataset (`observation.images.<name>`), Kleinbuchstaben, Ziffern, `_` | – |
+| `source` | Gerätepfad, Nummer (Windows/macOS) oder `test` (Testbild ohne Hardware) | – |
+| `width`, `height`, `fps` | gewünschtes Format | 640, 480, 30 |
+| `fourcc` | Bildformat der Kamera, `"MJPG"` schafft über USB 2.0 höhere Raten als `"YUYV"` | `"MJPG"` |
+| `rotation` | 0, 90, 180 oder 270 Grad | 0 |
+
+Den passenden Eintrag findet der Befehl
+
+```bash
+uv run so101-lab cameras
+```
+
+Er öffnet jede Kamera kurz und zeigt, ob sie Bilder liefert. Unter Linux erscheint eine USB-Kamera oft
+**zweimal** (`/dev/video0` und `/dev/video1`): Nur einer der beiden liefert Bilder, der andere ist für
+Metadaten. Der Befehl schlägt den **festen Namen** unter `/dev/v4l/by-id/` vor. Der bleibt gleich, auch
+wenn sich die Nummer beim Umstecken ändert.
+
+Beim Verbinden des Geräts werden seine Kameras geöffnet. Fehlt eine, verbindet das Gerät trotzdem, mit
+einer Warnung. Der Reiter **Datensätze** zeigt eine Live-Vorschau (höchstens 10 Bilder/s, um Browser und
+Netz zu schonen) und unter jedem Bild die tatsächliche Größe und Bildrate. Die Suche gibt es dort auch.
+
+!!! tip "Wenig Licht = wenig Bilder"
+    Viele Webcams verlängern bei wenig Licht die Belichtungszeit und liefern dann nur noch 10 statt
+    30 Bilder je Sekunde. Die Vorschau warnt dann. Für Datasets: gut beleuchten. Ein Dataset mit 30 fps
+    wiederholt sonst jedes Bild dreimal.
+
+## 7. LeRobot-Datasets aufnehmen
+
+<a class="lab-link" href="../index.html#datensaetze">In der Web-App ausprobieren</a>
+
+Ein **LeRobot-Dataset** ist das, was `lerobot-record` schreibt und `lerobot-train` liest. Es besteht aus
+**Episoden**: Jede Episode ist eine Vorführung der Aufgabe. Je Zeitschritt (bei 30 fps also 30-mal je
+Sekunde) enthält es
+
+| Merkmal | Inhalt |
+|---|---|
+| `observation.state` | Gelenkwerte des Arms: Grad, Greifer in Prozent (wie LeRobot, Namen `shoulder_pan.pos` …) |
+| `observation.images.<kamera>` | ein Bild je Kamera (gespeichert als Video) |
+| `action` | was der Arm tun soll, in denselben Einheiten |
+| `task` | die Aufgabe in Worten, z. B. „Den Würfel in die Schale legen“ |
+
+Woher die **Aktion** kommt:
+
+- **Teleoperation** (Reiter Aufnahmen): die Stellung des Leaders, so wie bei `lerobot-record`. Das ist der
+  übliche Weg für Trainingsdaten: Die Policy lernt, aus Bild und Zustand die nächste Leader-Stellung
+  vorherzusagen.
+- **Abspielen** einer Aufnahme: das Ziel, das gerade an den Arm geht.
+- **Von Hand geführt**: die Beobachtung selbst.
+
+Ablauf im Reiter **Datensätze** (Steuerrecht und Kalibrierung nötig):
+
+1. Name und Aufgabe eingeben, **Dataset öffnen**. Gibt es den Namen schon, wird das Dataset
+   weitergeschrieben (gleiche Kameras und fps vorausgesetzt).
+2. Falls gewünscht, im Reiter Aufnahmen die Teleoperation starten.
+3. **Episode starten**, die Aufgabe einmal vorführen, **Episode speichern** (oder **verwerfen**, wenn
+   etwas schiefging). Beim Speichern wird das Video kodiert, das dauert einen Moment.
+4. Für jede weitere Vorführung Schritt 3 wiederholen. Für das Training braucht es viele Episoden
+   (LeRobot nennt 50 als Standard).
+5. **Dataset abschließen**. Erst dann sind alle Dateien vollständig geschrieben.
+
+Verliert der Browser das Steuerrecht während einer Episode, wird sie **verworfen**: Eine abgebrochene
+Vorführung wäre ein schlechtes Trainingsbeispiel. Das Dataset bleibt offen.
+
+Ohne Kalibrierung geht es nicht: Das Dataset speichert Grad und Prozent wie LeRobot, nicht Rohwerte.
+
+!!! note "Nur lokal"
+    Gespeichert wird unter `recordings/datasets/<name>/` (nicht im Git). Die Web-App lädt nie etwas
+    hoch. Die `repo_id` ist `lab/<name>`: nur ein Name, es gibt keinen Hub-Nutzer.
+
+## 8. Datasets ansehen und benutzen
+
+Die Tabelle im Reiter Datensätze zeigt alle Datasets mit Episoden, Frames, Dauer, Kameras und Größe.
+**Befehle** zeigt, wie man ein Dataset ansieht und in Python lädt:
+
+```bash
+uv run lerobot-dataset-viz --repo-id lab/<name> --root recordings/datasets/<name> --episode-index 0
+```
+
+```python
+from lerobot.datasets.lerobot_dataset import LeRobotDataset
+
+ds = LeRobotDataset("lab/<name>", root="recordings/datasets/<name>")
+print(ds.num_episodes, ds.num_frames, ds.features.keys())
+frame = ds[0]  # observation.state, action, observation.images.front (3×H×W), task …
+```
+
+Aufbau auf der Platte (Format v3.0):
+
+```
+recordings/datasets/<name>/
+  meta/info.json            fps, Merkmale, Anzahl Episoden und Frames
+  meta/tasks.parquet        die Aufgaben
+  meta/episodes/…           Beginn und Ende jeder Episode
+  meta/stats.json           Mittelwerte und Streuung (für das Training)
+  data/chunk-000/…parquet   Gelenkwerte und Aktionen je Frame
+  videos/observation.images.<kamera>/chunk-000/…mp4   Bilder als Video (AV1)
+```
+
+??? info "Dasselbe „in fertig“: lerobot-record"
+    ```bash
+    uv run lerobot-record --robot.type=so101_follower --robot.port=/dev/ttyACM0 --robot.id=follower_1 \
+      --robot.calibration_dir=calibration/robots/so_follower \
+      --robot.cameras='{front: {type: opencv, index_or_path: /dev/video0, width: 640, height: 480, fps: 30}}' \
+      --teleop.type=so101_leader --teleop.port=/dev/ttyACM1 --teleop.id=leader_1 \
+      --teleop.calibration_dir=calibration/teleoperators/so_leader \
+      --dataset.repo_id=lab/wuerfel --dataset.single_task="Den Würfel in die Schale legen" \
+      --dataset.root=recordings/datasets/wuerfel --dataset.push_to_hub=false --dataset.num_episodes=5
+    ```
+    Wichtig: `lerobot-record` lädt in der Standardeinstellung zum Hugging Face Hub hoch. Im Labor
+    immer `--dataset.push_to_hub=false` und ein lokales `--dataset.root` angeben. Außerdem schreibt
+    LeRobot beim Verbinden Regelwerte ins EEPROM (Kapitel [Einrichtung](02-einrichtung.md)).

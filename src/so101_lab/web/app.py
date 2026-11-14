@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -34,6 +34,7 @@ from .. import __version__
 from ..backends.base import BackendError
 from ..calibration_files import CalibrationFileError, CalRef
 from ..config import ConfigError, load_config
+from ..lab_dataset import DatasetError
 from ..safety import connect_arm
 from ..trajectories import TrajectoryError
 from .session import ControlError, DeviceSession
@@ -248,6 +249,16 @@ class OverwriteRequest(ClientRequest):
     overwrite: bool = False
 
 
+class DatasetOpenRequest(ClientRequest):
+    name: str
+    task: str
+    fps: int = 30
+
+
+class EpisodeStopRequest(ClientRequest):
+    keep: bool = True
+
+
 class SetupStartRequest(ClientRequest):
     port: str  # serieller Port oder "mock" (Simulation)
     device_type: str  # so101_follower | so101_leader | lekiwi
@@ -291,6 +302,10 @@ def create_app(server: LabServer, docs_dir: Path | None = None) -> FastAPI:
 
     @app.exception_handler(CalibrationFileError)
     async def _calfile_error(_request: Request, exc: CalibrationFileError) -> JSONResponse:
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+
+    @app.exception_handler(DatasetError)
+    async def _dataset_error(_request: Request, exc: DatasetError) -> JSONResponse:
         return JSONResponse({"detail": str(exc)}, status_code=400)
 
     @app.exception_handler(TrajectoryError)
@@ -526,6 +541,98 @@ def create_app(server: LabServer, docs_dir: Path | None = None) -> FastAPI:
         path = save_new(ref, body.content, overwrite=body.overwrite)
         reload_users(ref)
         return {"path": str(path)}
+
+    # --- Kameras ---------------------------------------------------------------------------
+
+    @app.get("/api/cameras", dependencies=[Depends(auth)])
+    def cameras() -> list[dict[str, Any]]:
+        """Kameras dieses Rechners. Schon geöffnete werden nicht noch einmal geöffnet."""
+        from ..cameras import find_cameras
+
+        in_use = {c.spec.source for s in server.sessions.values() for c in s.cameras.values()}
+        return find_cameras(skip=in_use)
+
+    def camera_of(name: str, cam: str):
+        camera = server.session(name).cameras.get(cam)
+        if camera is None:
+            raise HTTPException(404, f"Gerät '{name}' hat keine geöffnete Kamera '{cam}'.")
+        return camera
+
+    @app.get("/api/devices/{name}/cameras/{cam}/frame.jpg", dependencies=[Depends(auth)])
+    def camera_frame(name: str, cam: str) -> Response:
+        from ..cameras import to_jpeg
+
+        frame = camera_of(name, cam).latest()
+        if frame is None:
+            raise HTTPException(503, f"Kamera '{cam}' liefert gerade kein Bild.")
+        return Response(to_jpeg(frame), media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+
+    @app.get("/api/devices/{name}/cameras/{cam}/stream", dependencies=[Depends(auth)])
+    async def camera_stream(name: str, cam: str, request: Request, fps: float = 10) -> StreamingResponse:
+        """MJPEG-Strom für ein <img>: höchstens `fps` Bilder je Sekunde (Vorschau, nicht Aufnahme)."""
+        from ..cameras import to_jpeg
+
+        camera = camera_of(name, cam)
+        period = 1.0 / max(1.0, min(30.0, fps))
+
+        async def frames():
+            last = None
+            while not await request.is_disconnected() and name in server.sessions:
+                frame = camera.latest()
+                if frame is not None and frame is not last:
+                    last = frame
+                    jpeg = await asyncio.to_thread(to_jpeg, frame, 70)
+                    yield (
+                        b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
+                        + str(len(jpeg)).encode()
+                        + b"\r\n\r\n"
+                        + jpeg
+                        + b"\r\n"
+                    )
+                await asyncio.sleep(period)
+
+        return StreamingResponse(
+            frames(),
+            media_type="multipart/x-mixed-replace; boundary=frame",
+            headers={"Cache-Control": "no-store"},
+        )
+
+    # --- LeRobot-Dataset -----------------------------------------------------------------
+
+    @app.post("/api/devices/{name}/dataset/open", dependencies=[Depends(auth)])
+    def dataset_open(name: str, body: DatasetOpenRequest) -> dict[str, Any]:
+        client = server.require_client(body.client_id)
+        return server.session(name).dataset_open(client, body.name, body.task, body.fps)
+
+    @app.post("/api/devices/{name}/dataset/episode/start", dependencies=[Depends(auth)])
+    def episode_start(name: str, body: ClientRequest) -> dict[str, Any]:
+        return server.session(name).episode_start(server.require_client(body.client_id))
+
+    @app.post("/api/devices/{name}/dataset/episode/stop", dependencies=[Depends(auth)])
+    def episode_stop(name: str, body: EpisodeStopRequest) -> dict[str, Any]:
+        client = server.require_client(body.client_id)
+        return server.session(name).episode_stop(client, keep=body.keep)
+
+    @app.post("/api/devices/{name}/dataset/close", dependencies=[Depends(auth)])
+    def dataset_close(name: str, body: ClientRequest) -> dict[str, str]:
+        server.session(name).dataset_close(server.require_client(body.client_id))
+        return {"status": "abgeschlossen"}
+
+    @app.get("/api/datasets", dependencies=[Depends(auth)])
+    def datasets() -> list[dict[str, Any]]:
+        from ..lab_dataset import list_datasets
+
+        return list_datasets()
+
+    @app.delete("/api/datasets/{ds_name}", dependencies=[Depends(auth)])
+    def dataset_delete(ds_name: str, client_id: str | None = None) -> dict[str, str]:
+        from ..lab_dataset import delete_dataset
+
+        server.require_client(client_id)
+        if any(s.dataset is not None and s.dataset.name == ds_name for s in server.sessions.values()):
+            raise ControlError(f"Das Dataset '{ds_name}' ist gerade geöffnet. Erst abschließen.")
+        delete_dataset(ds_name)
+        return {"status": "gelöscht"}
 
     # --- Bibliothek der Aufnahmen ------------------------------------------------------
 

@@ -22,6 +22,12 @@ Hier liegen die Regeln für den Betrieb über den Browser:
   Ziel für `move_to`. So gibt es keinen zweiten Thread am Bus. Verliert der Client das
   Steuerrecht (Abgabe, Watchdog, Not-Aus, Trennen), endet alles: Eine laufende Aufnahme wird
   bis dahin gespeichert, Abspielen und Teleoperation hören auf.
+- **Kameras** aus arms.toml werden beim Verbinden geöffnet (eigener Lese-Thread je Kamera).
+  Fehlt eine, verbindet das Gerät trotzdem, mit Warnung.
+- **LeRobot-Dataset** (`lab_dataset.py`): Episoden laufen in einem eigenen Thread mit fester
+  Rate und lesen nur die zuletzt abgefragten Werte und das neueste Kamerabild. Verliert der
+  Client das Steuerrecht, wird die laufende Episode verworfen (unvollständige Vorführungen
+  sind schlechte Trainingsdaten).
 """
 
 from __future__ import annotations
@@ -40,7 +46,9 @@ from ..arm import Arm
 from ..backends.base import BackendError, ServoState
 from ..calibrate import CalibrationRun, Stage, target_path
 from ..calibration import find_calibration_file, load_calibration
+from ..cameras import LabCamera, open_camera
 from ..devices.spec import Joint, JointMode, NormMode
+from ..lab_dataset import DatasetError, LabDataset, joint_values
 from ..motion import (
     LEADER_TIMEOUT_S,
     Converter,
@@ -135,6 +143,9 @@ class DeviceSession:
         self.teleop_leader: DeviceSession | None = None
         self._latest: tuple[dict[str, int], float] | None = None  # letzte Positionen (für Teleoperation)
         self.last_recording: dict[str, Any] | None = None
+        self.cameras: dict[str, LabCamera] = {}
+        self.dataset: LabDataset | None = None
+        self._last_targets: dict[str, int] | None = None  # letztes Ziel des Abspielers (Aktion im Dataset)
 
     # ------------------------------------------------------------ Start und Ende
 
@@ -151,6 +162,12 @@ class DeviceSession:
         self.event("info", f"Verbunden ({self.arm.backend.name}{', ' + self.port if self.port else ''}).")
         if self.missing:
             self.event("warn", f"Keine Antwort von: {', '.join(self.missing)}.")
+        for spec in self.arm.cfg.cameras:
+            try:
+                self.cameras[spec.name] = open_camera(spec)
+                self.event("info", f"Kamera '{spec.name}' geöffnet ({spec.source}).")
+            except Exception as exc:
+                self.event("warn", f"Kamera '{spec.name}' nicht verfügbar: {exc}")
         self._thread = threading.Thread(target=self._loop, name=f"poll-{self.name}", daemon=True)
         self._thread.start()
 
@@ -163,6 +180,9 @@ class DeviceSession:
             self.controller = None
         self._abort_calibration("Verbindung getrennt")
         self._end_motion("Verbindung getrennt")
+        self._close_dataset()
+        for camera in self.cameras.values():
+            camera.close()
         with self.bus_lock:
             try:
                 self.arm.safe_shutdown()
@@ -721,6 +741,122 @@ class DeviceSession:
         """Zuletzt gelesene Positionen und Zeitpunkt (für einen Follower, der diesem Gerät folgt)."""
         return None if self._stop.is_set() else self._latest
 
+    # ------------------------------------------------------------ LeRobot-Dataset
+
+    def dataset_open(self, client_id: str | None, name: str, task: str, fps: int = 30) -> dict[str, Any]:
+        """Dataset anlegen oder ein vorhandenes gleichen Namens zum Weiterschreiben öffnen."""
+        self.require_control(client_id)
+        if self.dataset is not None:
+            raise ControlError(f"Das Dataset '{self.dataset.name}' ist schon geöffnet. Erst abschließen.")
+        if not self.arm.is_calibrated:
+            raise BackendError(
+                "Für ein LeRobot-Dataset braucht das Gerät eine Kalibrierung: Gespeichert werden Grad und "
+                "Prozent wie bei LeRobot, nicht Rohwerte."
+            )
+        joints = [n for n in self.present if self.arm.spec.joint(n).mode is JointMode.POSITION]
+        try:
+            self.dataset = LabDataset(name, joints, self.cameras, fps, self.arm.spec.lerobot_name, task)
+        except DatasetError as exc:
+            raise BackendError(str(exc)) from None
+        how = "weitergeschrieben" if self.dataset.resumed else "angelegt"
+        cams = ", ".join(self.cameras) or "keine Kamera"
+        self.event("info", f"Dataset '{name}' {how} ({fps} fps, {cams}): {self.dataset.path}")
+        return self.dataset.status()
+
+    def _dataset_values(self) -> tuple[dict[str, float], dict[str, float]] | None:
+        """Beobachtung und Aktion in Grad/Prozent (Aufruf aus dem Dataset-Thread)."""
+        latest = self._latest
+        if latest is None or self.clock() - latest[1] > 0.2:
+            return None
+        dataset = self.dataset
+        if dataset is None:
+            return None
+        positions = {j: latest[0][j] for j in dataset.joints if j in latest[0]}
+        obs = joint_values(self.arm.to_joint_values(positions))
+        if obs is None or len(obs) != len(dataset.joints):
+            return None
+        action = obs
+        teleop, leader, player = self.teleop, self.teleop_leader, self.player
+        if teleop is not None and leader is not None:
+            lead = leader.latest()
+            if lead is None:
+                return None
+            raw = {src: lead[0][src] for dst, src in teleop.converter.mapping.items() if src in lead[0]}
+            values = joint_values(leader.arm.to_joint_values(raw))
+            if values is None:
+                return None
+            action = {dst: values[src] for dst, src in teleop.converter.mapping.items() if src in values}
+        elif player is not None and self._last_targets:
+            targets = joint_values(self.arm.to_joint_values(self._last_targets))
+            if targets is not None:
+                action = {**obs, **targets}
+        if any(j not in action for j in dataset.joints):
+            return None
+        return obs, action
+
+    def episode_start(self, client_id: str | None) -> dict[str, Any]:
+        self.require_control(client_id)
+        if self.dataset is None:
+            raise BackendError("Erst ein Dataset öffnen.")
+        try:
+            self.dataset.start_episode(self._dataset_values)
+        except DatasetError as exc:
+            raise BackendError(str(exc)) from None
+        source = (
+            f"Aktion vom Leader '{self.teleop.leader}'"
+            if self.teleop
+            else "Aktion = Ziel des Abspielers"
+            if self.player
+            else "von Hand, Aktion = Beobachtung"
+        )
+        self.event("info", f"Episode {self.dataset.episode.index} läuft ({source}).")  # type: ignore[union-attr]
+        return self.dataset.status()
+
+    def episode_stop(self, client_id: str | None, keep: bool = True) -> dict[str, Any]:
+        self.require_control(client_id)
+        if self.dataset is None or self.dataset.episode is None:
+            raise BackendError("Es läuft keine Episode.")
+        episode = self.dataset.stop_episode(keep=keep)
+        if keep and episode.frames >= 2:
+            self.event(
+                "info",
+                f"Episode {episode.index} gespeichert: {episode.frames} Frames, {episode.duration_s:.1f} s"
+                + (
+                    f", {episode.skipped} Zeitschritte ausgelassen (Kamera zu langsam?)"
+                    if episode.skipped
+                    else ""
+                )
+                + ".",
+            )
+        else:
+            self.event("warn", f"Episode {episode.index} verworfen.")
+        return self.dataset.status()
+
+    def dataset_close(self, client_id: str | None) -> None:
+        self.require_control(client_id)
+        if self.dataset is None:
+            raise BackendError("Es ist kein Dataset geöffnet.")
+        self._close_dataset()
+
+    def _discard_episode(self, reason: str) -> None:
+        dataset = self.dataset
+        if dataset is not None and dataset.episode is not None:
+            try:
+                dataset.stop_episode(keep=False)
+                self.event("warn", f"Episode verworfen ({reason}).")
+            except Exception as exc:
+                self.event("error", f"Episode verwerfen fehlgeschlagen: {exc}")
+
+    def _close_dataset(self) -> None:
+        dataset, self.dataset = self.dataset, None
+        if dataset is None:
+            return
+        try:
+            dataset.close()
+            self.event("info", f"Dataset '{dataset.name}' abgeschlossen: {dataset.saved_episodes} Episoden.")
+        except Exception as exc:
+            self.event("error", f"Dataset '{dataset.name}' abschließen fehlgeschlagen: {exc}")
+
     # ------------------------------------------------------------ Bewegungsabläufe beenden
 
     def _stop_following(self, reason: str, hold: bool = False) -> None:
@@ -740,6 +876,7 @@ class DeviceSession:
         self._stop_following(reason)
         if self.recorder is not None:
             self._finish_recording(reason)
+        self._discard_episode(reason)
 
     def _motion_tick(self, positions: dict[str, int], now: float) -> None:
         """Einmal je Abfragerunde: aufnehmen, abspielen oder folgen."""
@@ -752,6 +889,7 @@ class DeviceSession:
         try:
             if player is not None:
                 targets = player.targets(now)
+                self._last_targets = targets
                 with self.bus_lock:
                     self.arm.move_to(targets)
                 if player.finished and self.player is player:
@@ -784,6 +922,7 @@ class DeviceSession:
         self._abort_calibration("Not-Aus")
         if self.recorder is not None:
             self._finish_recording("Not-Aus")
+        self._discard_episode("Not-Aus")
 
     def _make_safe(self) -> None:
         self._abort_calibration("Steuerrecht verloren")
@@ -893,5 +1032,8 @@ class DeviceSession:
             "last_recording": self.last_recording,
             "playback": self.player.status(self.clock()) if self.player else None,
             "teleop": self.teleop.status(self.clock()) if self.teleop else None,
+            "cameras": [c.status() for c in self.cameras.values()],
+            "camera_config": [s.name for s in self.arm.cfg.cameras],
+            "dataset": self.dataset.status() if self.dataset else None,
             **self._snapshot,
         }

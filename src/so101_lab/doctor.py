@@ -144,13 +144,17 @@ def check_cameras() -> list[Result]:
         if not devices:
             return [Result(INFO, "Keine Kamera (/dev/video*) gefunden")]
         unreadable = [d for d in devices if not os.access(d, os.R_OK)]
-        results = [Result(OK, f"{len(devices)} Videogeräte: {', '.join(devices)}")]
+        results = [
+            Result(
+                OK, f"{len(devices)} Videogeräte: {', '.join(devices)}", "Details: uv run so101-lab cameras"
+            )
+        ]
         if unreadable:
             results.append(
                 Result(WARN, f"Kein Zugriff auf {', '.join(unreadable)}", "Gruppe 'video' prüfen.")
             )
         return results
-    return [Result(INFO, "Kamerasuche: 'uv run lerobot-find-cameras' ausführen")]
+    return [Result(INFO, "Kamerasuche: 'uv run so101-lab cameras' ausführen")]
 
 
 def check_config(config_path: str | None) -> list[Result]:

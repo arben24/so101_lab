@@ -201,3 +201,17 @@ h2 small { font-weight: 400; color: var(--muted); font-size: 12px; }
 #calf-cmp td.bad { color: var(--danger); font-weight: 600; }
 #calf-cmp td.ok { color: var(--ok); }
 #calf-file { min-width: 0; }
+
+/* ---------- Datensätze */
+.camera-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.camera { border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--bg); }
+.camera img { display: block; width: 100%; height: auto; background: #000; min-height: 120px; }
+.camera .caption { font-size: 12px; padding: 4px 8px; color: var(--muted); }
+.camera .caption.bad { color: var(--warn); }
+label.wide { flex: 1; min-width: 280px; }
+label.wide input { width: 100%; }
+#ds-fps { min-width: 0; width: 80px; }
+.snippet { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; font-size: 12px; overflow-x: auto; white-space: pre; }
+#cam-table td:nth-child(-n+2), #cam-table th:nth-child(-n+2), #cam-table td:nth-child(4), #cam-table th:nth-child(4) { text-align: left; }
+#ds-table td:nth-child(2), #ds-table td:nth-child(7), #ds-table th:nth-child(2), #ds-table th:nth-child(7) { text-align: left; }
+#ds-table button { padding: 2px 8px; margin-right: 4px; }

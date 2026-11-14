@@ -76,9 +76,9 @@ Reiter der Web-App:
 | Register | alle Register eines Servos lesen, freigegebene schreiben (EEPROM nur mit Bestätigung) |
 | Kalibrierung | geführte Kalibrierung mit Anzeige, wo die Datei gespeichert wird |
 | Aufnahmen | von Hand aufnehmen, Teleoperation Leader → Follower, Bibliothek mit Kurven, Abspielen |
+| Datensätze | Kamera-Vorschau und -Suche, Episoden als LeRobot-Dataset aufnehmen, Datasets verwalten |
 | Einrichtung | Assistent für neue Servos: ID und Baudrate vergeben, prüfen, protokollieren (genau ein Servo am Bus) |
 
-Kamera und LeRobot-Datasets kommen in der nächsten Ausbaustufe dazu.
 
 <a class="lab-link" href="../index.html#status">Web-App öffnen</a>
 

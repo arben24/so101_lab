@@ -60,6 +60,7 @@
       <a href="#kalibrierung">Kalibrierung</a>
       <a href="#kalibrierdateien">Kalibrierdateien</a>
       <a href="#aufnahmen">Aufnahmen</a>
+      <a href="#datensaetze">Datensätze</a>
       <a href="#einrichtung">Einrichtung</a>
     </nav>
 
@@ -292,6 +293,58 @@
         <svg id="lib-plot" viewBox="0 0 800 260" role="img"></svg>
         <div class="legend" id="lib-legend"></div>
       </div>
+    </section>
+
+    <!-- ============================================================ Datensätze -->
+    <section class="card tab" id="tab-datensaetze">
+      <h2>Kameras</h2>
+      <p class="hint">
+        Kameras gehören zu einem Gerät und stehen in <code>config/arms.toml</code> (<code>cameras = [...]</code>). Sie
+        werden beim Verbinden geöffnet. Die Vorschau zeigt höchstens 10 Bilder/s, aufgenommen wird mit voller Rate.
+        Wenig Licht senkt bei vielen Webcams die Bildrate (lange Belichtung).
+      </p>
+      <div class="camera-grid" id="cam-grid"></div>
+      <p class="status-line" id="cam-status"></p>
+      <div class="row"><button id="cam-find" class="secondary">Kameras dieses Rechners suchen</button></div>
+      <div class="table-wrap">
+        <table id="cam-table">
+          <thead><tr><th>Gerät</th><th>fester Name (für arms.toml)</th><th>Format</th><th>Zustand</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <pre class="snippet" id="cam-snippet" hidden></pre>
+
+      <h2 class="sub">LeRobot-Dataset aufnehmen</h2>
+      <p class="hint">
+        Ein Dataset sammelt <b>Episoden</b>: je eine Vorführung der Aufgabe, mit Gelenkwerten (Grad/Prozent, wie LeRobot),
+        Kamerabildern und der <b>Aktion</b>. Läuft die Teleoperation (Reiter Aufnahmen), ist die Aktion die Stellung des
+        Leaders, beim Abspielen das Ziel, sonst die Beobachtung selbst. Gespeichert wird nur lokal unter
+        <code>recordings/datasets/&lt;name&gt;/</code>, nie auf dem Hugging Face Hub. Ein vorhandenes Dataset gleichen
+        Namens wird weitergeschrieben. Braucht eine Kalibrierung und das Steuerrecht.
+      </p>
+      <div class="row">
+        <label>Name <input id="ds-name" placeholder="z. B. wuerfel_greifen" autocomplete="off"></label>
+        <label class="wide">Aufgabe in Worten (task) <input id="ds-task" placeholder="z. B. Den Würfel in die Schale legen" autocomplete="off"></label>
+        <label>fps <input id="ds-fps" type="number" min="1" max="60" value="30"></label>
+        <button id="ds-open">Dataset öffnen</button>
+        <button id="ds-close" class="secondary">Dataset abschließen</button>
+      </div>
+      <div class="row">
+        <button id="ep-start" class="warn">Episode starten</button>
+        <button id="ep-save">Episode speichern</button>
+        <button id="ep-discard" class="secondary">Episode verwerfen</button>
+      </div>
+      <p class="status-line" id="ds-status"></p>
+
+      <h2 class="sub">Datasets <small>(recordings/datasets/)</small></h2>
+      <div class="row"><button id="ds-refresh" class="secondary">Liste neu laden</button></div>
+      <div class="table-wrap">
+        <table id="ds-table">
+          <thead><tr><th>Name</th><th>Roboter</th><th>Episoden</th><th>Frames</th><th>Dauer</th><th>fps</th><th>Kameras</th><th>Größe</th><th>Geändert</th><th>Aktionen</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <pre class="snippet" id="ds-snippet" hidden></pre>
     </section>
 
     <!-- ============================================================ Einrichtung -->

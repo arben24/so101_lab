@@ -237,6 +237,8 @@ function render() {
   renderCalibration(snap, mine);
   renderMotion(snap, mine);
   renderCalFiles(snap, mine);
+  renderCameras(snap);
+  renderDataset(snap, mine);
   renderSetup();
 }
 
@@ -381,6 +383,7 @@ async function main() {
   bindSetup();
   bindMotion();
   bindCalFiles();
+  bindDatasets();
   const info = await (await fetch("/api/info")).json();
   if (!info.docs) {
     $("docs-link").classList.add("disabled");
@@ -395,7 +398,7 @@ async function main() {
 
 // ------------------------------------------------------------------ Reiter
 
-const TABS = ["status", "servo", "register", "kalibrierung", "kalibrierdateien", "aufnahmen", "einrichtung"];
+const TABS = ["status", "servo", "register", "kalibrierung", "kalibrierdateien", "aufnahmen", "datensaetze", "einrichtung"];
 
 function showTab() {
   const tab = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "status";
@@ -403,6 +406,8 @@ function showTab() {
   for (const a of $("tabs").querySelectorAll("a")) a.classList.toggle("active", a.hash === `#${tab}`);
   if (tab === "aufnahmen") action(loadLibrary);
   if (tab === "kalibrierdateien") action(loadCalFiles);
+  if (tab === "datensaetze") action(loadDatasets);
+  renderCameras(currentSnap()); // Vorschau nur im sichtbaren Reiter streamen
 }
 
 function bindTabs() {
@@ -1142,6 +1147,200 @@ function bindCalFiles() {
       });
       toast(`Importiert: ${result.path}`, "info");
       await loadCalFiles();
+    });
+}
+
+// ------------------------------------------------------------------ Kameras und Datasets
+
+const ds = { lastKey: null };
+
+function withToken(url) {
+  return app.token ? `${url}${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(app.token)}` : url;
+}
+
+function renderCameras(snap) {
+  const grid = $("cam-grid");
+  const visible = location.hash === "#datensaetze";
+  const cams = visible && snap ? snap.cameras ?? [] : [];
+  // Bilder nur neu anlegen, wenn sich Gerät oder Kameras ändern (sonst bricht der Strom ab)
+  const key = cams.length ? `${snap.name}|${cams.map((c) => c.name).join()}` : "";
+  if (grid.dataset.key !== key) {
+    grid.dataset.key = key;
+    grid.innerHTML = "";
+    for (const c of cams) {
+      const box = document.createElement("div");
+      box.className = "camera";
+      const img = document.createElement("img");
+      img.alt = `Kamera ${c.name}`;
+      img.src = withToken(`/api/devices/${encodeURIComponent(snap.name)}/cameras/${encodeURIComponent(c.name)}/stream?fps=10`);
+      const caption = document.createElement("div");
+      caption.className = "caption";
+      caption.dataset.cam = c.name;
+      box.append(img, caption);
+      grid.append(box);
+    }
+  }
+  for (const c of cams) {
+    const caption = grid.querySelector(`.caption[data-cam="${c.name}"]`);
+    if (!caption) continue;
+    const size = c.size ? `${c.size[0]}×${c.size[1]}` : "noch kein Bild";
+    const fps = snap.dataset?.fps ?? 30;
+    const slow = c.rate_hz > 0 && c.rate_hz < fps * 0.8;
+    caption.className = c.error || slow ? "caption bad" : "caption";
+    caption.textContent = `${c.name}: ${size}, ${fmt(c.rate_hz, 1)} Bilder/s (gewünscht ${c.requested})` +
+      (c.error ? ` – ${c.error}` : slow ? ` – langsamer als ${fps} fps (Licht?)` : "");
+  }
+  const missing = snap ? (snap.camera_config ?? []).filter((n) => !(snap.cameras ?? []).some((c) => c.name === n)) : [];
+  $("cam-status").textContent = !snap
+    ? "Oben ein Gerät verbinden, um seine Kameras zu sehen."
+    : !(snap.camera_config ?? []).length
+      ? `Für '${snap.name}' ist keine Kamera eingetragen. „Kameras suchen“ schlägt einen Eintrag für arms.toml vor.`
+      : missing.length
+        ? `Nicht geöffnet: ${missing.join(", ")} (Meldungen im Reiter Status).`
+        : "";
+}
+
+async function findCameras() {
+  $("cam-find").disabled = true;
+  try {
+    const list = await api("GET", "/api/cameras");
+    const body = $("cam-table").querySelector("tbody");
+    body.innerHTML = "";
+    const usable = [];
+    for (const c of list) {
+      const tr = document.createElement("tr");
+      const format = c.delivers_frames ? `${c.width}×${c.height} @ ${c.fps} (${c.fourcc})` : "–";
+      const state = c.in_use ? "geöffnet (von einem Gerät)" : c.delivers_frames ? "liefert Bilder" : c.error ?? "liefert keine Bilder (Metadaten-Knoten?)";
+      tr.append(td(c.device), td(c.source), td(format), td(state));
+      body.append(tr);
+      if (c.delivers_frames || c.in_use) usable.push(c);
+    }
+    if (!list.length) {
+      const tr = document.createElement("tr");
+      const cell = td("Keine Kamera gefunden.");
+      cell.colSpan = 4;
+      tr.append(cell);
+      body.append(tr);
+    }
+    const snippet = $("cam-snippet");
+    snippet.hidden = !usable.length;
+    snippet.textContent =
+      "# in config/arms.toml beim Gerät eintragen, dann Gerät neu verbinden:\ncameras = [\n" +
+      usable.map((c, i) => `  { name = "${i ? `cam${i}` : "front"}", source = "${c.source}", width = 640, height = 480, fps = 30 },`).join("\n") +
+      "\n]";
+  } finally {
+    $("cam-find").disabled = false;
+  }
+}
+
+function renderDataset(snap, mine) {
+  const d = snap?.dataset;
+  const ep = d?.episode;
+  $("ds-open").disabled = !mine || Boolean(d);
+  $("ds-close").disabled = !mine || !d || Boolean(ep);
+  $("ep-start").disabled = !mine || !d || Boolean(ep);
+  $("ep-save").disabled = !mine || !ep;
+  $("ep-discard").disabled = !mine || !ep;
+  for (const id of ["ds-name", "ds-task", "ds-fps"]) $(id).disabled = Boolean(d);
+  const status = $("ds-status");
+  status.className = ep ? "status-line live" : "status-line";
+  status.textContent = !snap
+    ? ""
+    : !d
+      ? mine
+        ? snap.calibration_path
+          ? "Kein Dataset geöffnet."
+          : "Keine Kalibrierung: Für ein LeRobot-Dataset erst kalibrieren (Reiter Kalibrierung)."
+        : "Für Datasets erst „Steuerung übernehmen“."
+      : `Dataset '${d.name}' (${d.fps} fps, ${d.cameras.length ? d.cameras.join(", ") : "ohne Kamera"}), ` +
+        `${d.saved_episodes} Episoden gespeichert. Aufgabe: „${d.task}“.` +
+        (ep ? ` ● Episode ${ep.index}: ${fmt(ep.duration_s, 1)} s, ${ep.frames} Frames` + (ep.skipped ? `, ${ep.skipped} ausgelassen` : "") : "") +
+        (d.error ? ` Fehler: ${d.error}` : "");
+  // Nach Speichern/Abschließen die Liste aktualisieren
+  const key = d ? `${d.name}|${d.saved_episodes}` : "";
+  if (ds.lastKey !== null && ds.lastKey !== key && location.hash === "#datensaetze") action(loadDatasets);
+  ds.lastKey = key;
+}
+
+async function loadDatasets() {
+  const list = await api("GET", "/api/datasets");
+  const body = $("ds-table").querySelector("tbody");
+  body.innerHTML = "";
+  if (!list.length) {
+    const tr = document.createElement("tr");
+    const cell = td("Noch keine Datasets.");
+    cell.colSpan = 10;
+    tr.append(cell);
+    body.append(tr);
+  }
+  for (const item of list) {
+    const tr = document.createElement("tr");
+    tr.append(
+      td(item.name),
+      td(item.robot_type ?? "–"),
+      td(item.episodes ?? "–"),
+      td(item.frames ?? "–"),
+      td(item.duration_s != null ? `${fmt(item.duration_s, 1)} s` : "–"),
+      td(item.fps ?? "–"),
+      td((item.cameras ?? []).join(", ") || "–"),
+      td(item.size_mb != null ? `${fmt(item.size_mb, 1)} MB` : "–"),
+      td(item.modified ? new Date(item.modified * 1000).toLocaleString("de-DE") : "–"),
+    );
+    const actions = document.createElement("td");
+    const show = document.createElement("button");
+    show.textContent = "Befehle";
+    show.className = "secondary";
+    show.onclick = () => {
+      const snippet = $("ds-snippet");
+      snippet.hidden = false;
+      snippet.textContent =
+        `# Ansehen (öffnet rerun):\nuv run lerobot-dataset-viz --repo-id lab/${item.name} --root recordings/datasets/${item.name} --episode-index 0\n\n` +
+        `# In Python laden:\nfrom lerobot.datasets.lerobot_dataset import LeRobotDataset\n` +
+        `ds = LeRobotDataset("lab/${item.name}", root="recordings/datasets/${item.name}")\n` +
+        `print(ds.num_episodes, ds.num_frames, ds.features.keys())`;
+    };
+    const del = document.createElement("button");
+    del.textContent = "Löschen";
+    del.className = "secondary";
+    del.onclick = () =>
+      action(async () => {
+        if (!(await ask(`Dataset '${item.name}' (${item.episodes} Episoden, ${fmt(item.size_mb, 1)} MB) endgültig löschen?`, "Löschen"))) return;
+        await api("DELETE", `/api/datasets/${encodeURIComponent(item.name)}?client_id=${encodeURIComponent(app.clientId ?? "")}`);
+        await loadDatasets();
+      });
+    actions.append(show, del);
+    tr.append(actions);
+    body.append(tr);
+  }
+}
+
+function bindDatasets() {
+  $("cam-find").onclick = () => action(findCameras);
+  $("ds-refresh").onclick = () => action(loadDatasets);
+  $("ds-open").onclick = () =>
+    action(async () => {
+      const name = $("ds-name").value.trim();
+      const task = $("ds-task").value.trim();
+      if (!name || !task) throw new Error("Bitte Name und Aufgabe (task) eingeben.");
+      await api("POST", deviceUrl("dataset/open"), { client_id: app.clientId, name, task, fps: Number($("ds-fps").value) });
+    });
+  $("ds-close").onclick = () =>
+    action(async () => {
+      await api("POST", deviceUrl("dataset/close"), { client_id: app.clientId });
+      await loadDatasets();
+    });
+  $("ep-start").onclick = () => action(() => api("POST", deviceUrl("dataset/episode/start"), { client_id: app.clientId }));
+  $("ep-save").onclick = () =>
+    action(async () => {
+      $("ep-save").disabled = true;
+      $("ds-status").textContent = "Episode wird gespeichert (Video kodieren) …";
+      await api("POST", deviceUrl("dataset/episode/stop"), { client_id: app.clientId, keep: true });
+      await loadDatasets();
+    });
+  $("ep-discard").onclick = () =>
+    action(async () => {
+      if (!(await ask("Diese Episode verwerfen? Sie wird nicht gespeichert.", "Verwerfen"))) return;
+      await api("POST", deviceUrl("dataset/episode/stop"), { client_id: app.clientId, keep: false });
     });
 }
 
