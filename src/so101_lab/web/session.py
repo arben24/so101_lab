@@ -17,6 +17,11 @@ Hier liegen die Regeln für den Betrieb über den Browser:
   Steuerrecht mittendrin, werden die alten EEPROM-Werte zurückgeschrieben.
 - **Register schreiben:** RAM nur aus der Whitelist, EEPROM nur mit ausdrücklicher Bestätigung
   und nie ID, Baudrate oder die Kalibrierwerte (dafür gibt es eigene Abläufe).
+- **Aufnehmen, Abspielen, Teleoperation** (`motion.py`) laufen im Takt der Zustandsabfrage mit:
+  Der Recorder bekommt jede gelesene Position, Abspieler und Teleoperation liefern je Runde ein
+  Ziel für `move_to`. So gibt es keinen zweiten Thread am Bus. Verliert der Client das
+  Steuerrecht (Abgabe, Watchdog, Not-Aus, Trennen), endet alles: Eine laufende Aufnahme wird
+  bis dahin gespeichert, Abspielen und Teleoperation hören auf.
 """
 
 from __future__ import annotations
@@ -34,9 +39,22 @@ from .. import registers as regs
 from ..arm import Arm
 from ..backends.base import BackendError, ServoState
 from ..calibrate import CalibrationRun, Stage, target_path
+from ..calibration import find_calibration_file, load_calibration
 from ..devices.spec import Joint, JointMode, NormMode
+from ..motion import (
+    LEADER_TIMEOUT_S,
+    Converter,
+    PlaybackPlan,
+    Player,
+    Recorder,
+    TeleopFollow,
+    approach_duration,
+    calibration_to_dict,
+    prepare_playback,
+)
 from ..register_info import info
 from ..safety import write_ram_register
+from ..trajectories import TrajectoryError, check_name, check_new_name, load_trajectory, save_trajectory
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +126,15 @@ class DeviceSession:
         self._error: str | None = None
         self.calibration_run: CalibrationRun | None = None
         self.motion = {"velocity": arm.cfg.max_velocity, "acceleration": arm.cfg.acceleration}
+        self.recorder: Recorder | None = None
+        self.recording_source = ""
+        self._recording_overwrite = False
+        self._recording_offsets: dict[str, int] = {}
+        self.player: Player | None = None
+        self.teleop: TeleopFollow | None = None
+        self.teleop_leader: DeviceSession | None = None
+        self._latest: tuple[dict[str, int], float] | None = None  # letzte Positionen (für Teleoperation)
+        self.last_recording: dict[str, Any] | None = None
 
     # ------------------------------------------------------------ Start und Ende
 
@@ -135,6 +162,7 @@ class DeviceSession:
         with self._control_lock:
             self.controller = None
         self._abort_calibration("Verbindung getrennt")
+        self._end_motion("Verbindung getrennt")
         with self.bus_lock:
             try:
                 self.arm.safe_shutdown()
@@ -220,17 +248,22 @@ class DeviceSession:
         return self.arm.spec.joint(name)
 
     def _require_free(self, client_id: str | None) -> None:
-        """Steuerrecht nötig, und keine Kalibrierung darf gerade laufen."""
+        """Steuerrecht nötig, und weder Kalibrierung noch Abspielen oder Teleoperation dürfen laufen."""
         self.require_control(client_id)
         run = self.calibration_run
         if run is not None and run.stage in (Stage.MIDDLE, Stage.RANGE):
             raise ControlError("Die Kalibrierung läuft. Erst speichern oder abbrechen.")
+        if self.player is not None:
+            raise ControlError("Eine Aufnahme wird gerade abgespielt. Erst stoppen.")
+        if self.teleop is not None:
+            raise ControlError("Die Teleoperation läuft. Erst stoppen.")
 
     def set_torque(self, client_id: str | None, enabled: bool, joints: list[str] | None = None) -> None:
         if enabled:
             self._require_free(client_id)
         else:
             self.require_control(client_id)  # Ausschalten geht immer, auch beim Kalibrieren
+            self._stop_following("Drehmoment aus")
         names = [self.joint(n).name for n in joints] if joints else list(self.present)
         which = "alle Gelenke" if not joints else ", ".join(names)
         if enabled:
@@ -357,6 +390,104 @@ class DeviceSession:
         self.event("info", "Kalibrierung gestartet: Drehmoment aus. Gelenke in die Mitte stellen.")
         return self.calibration_run.status()
 
+    # ------------------------------------------------------------ Kalibrierdatei und Servos
+
+    def _calibrating(self) -> bool:
+        run = self.calibration_run
+        return run is not None and run.stage in (Stage.MIDDLE, Stage.RANGE)
+
+    def reload_calibration(self, client_id: str | None = None, quiet: bool = False) -> dict[str, Any]:
+        """Kalibrierdatei neu suchen und laden (nach Löschen, Wiederherstellen, Import)."""
+        if self._calibrating():
+            raise ControlError("Die Kalibrierung läuft. Erst speichern oder abbrechen.")
+        spec, cfg = self.arm.spec, self.arm.cfg
+        path = find_calibration_file(spec, cfg.calibration_id, cfg.calibration_dir)
+        before = self.arm.calibration_path
+        self.arm.calibration = load_calibration(path) if path else None
+        self.arm.calibration_path = path
+        if not quiet or path != before:
+            self.event(
+                "info" if path else "warn",
+                f"Kalibrierung neu geladen: {path}" if path else "Keine Kalibrierdatei mehr: Grenzen 0…4095.",
+            )
+        return {"calibration_path": str(path) if path else None}
+
+    def compare_calibration(self) -> dict[str, Any]:
+        """Datei gegen die Werte im EEPROM der Servos (wie LeRobots `is_calibrated`). Liest nur."""
+        cal = self.arm.calibration
+        rows = []
+        with self.bus_lock:
+            for name in self.present:
+                joint = self.arm.spec.joint(name)
+                servo = {}
+                for reg in ("homing_offset", "min_position_limit", "max_position_limit"):
+                    try:
+                        servo[reg] = self.arm.backend.read_register(joint.motor_id, reg)
+                    except BackendError:
+                        servo[reg] = None
+                c = cal.get(name) if cal else None
+                expected = (
+                    {
+                        "homing_offset": c.homing_offset,
+                        "min_position_limit": c.range_min,
+                        "max_position_limit": c.range_max,
+                    }
+                    if c
+                    else None
+                )
+                rows.append(
+                    {
+                        "name": name,
+                        "file": expected,
+                        "servo": servo,
+                        "match": expected is not None and expected == servo,
+                    }
+                )
+        return {
+            "calibration_path": str(self.arm.calibration_path) if self.arm.calibration_path else None,
+            "joints": rows,
+            "all_match": bool(rows) and all(r["match"] for r in rows),
+        }
+
+    def apply_calibration(self, client_id: str | None) -> dict[str, Any]:
+        """Werte der geladenen Datei ins EEPROM der Servos schreiben (nur geänderte, mit Prüfung).
+
+        So macht es auch `lerobot-calibrate`, wenn man eine vorhandene Datei übernimmt. Nötig,
+        wenn Datei und Servos nicht zusammenpassen (andere Datei wiederhergestellt, Servo getauscht).
+        Das Drehmoment der betroffenen Servos geht dabei aus.
+        """
+        self._require_free(client_id)
+        if self.recorder is not None:
+            raise ControlError("Erst die laufende Aufnahme beenden.")
+        cal = self.arm.calibration
+        if not cal:
+            raise BackendError("Keine Kalibrierdatei geladen, nichts zu schreiben.")
+        written: list[str] = []
+
+        def write(arm: Arm) -> None:
+            for name in self.present:
+                c = cal.get(name)
+                if c is None:
+                    continue
+                servo = arm.spec.joint(name).motor_id
+                for reg, value in (
+                    ("homing_offset", c.homing_offset),
+                    ("min_position_limit", c.range_min),
+                    ("max_position_limit", c.range_max),
+                ):
+                    if arm.backend.read_register(servo, reg) != value:
+                        arm.backend.write_eeprom(servo, reg, value)  # Drehmoment aus, schreiben, zurücklesen
+                        written.append(f"{name}.{reg}={value}")
+
+        self.run(write)
+        if written:
+            self.event(
+                "warn", "Kalibrierdatei in die Servos geschrieben (EEPROM): " + ", ".join(written) + "."
+            )
+        else:
+            self.event("info", "Servos und Kalibrierdatei stimmen schon überein, nichts geschrieben.")
+        return {"written": written, **self.compare_calibration()}
+
     def _calibration(self, client_id: str | None, stage: Stage) -> CalibrationRun:
         self.require_control(client_id)
         run = self.calibration_run
@@ -396,17 +527,267 @@ class DeviceSession:
         except Exception as exc:
             self.event("error", f"Kalibrierung abgebrochen ({reason}), Zurückschreiben fehlgeschlagen: {exc}")
 
+    # ------------------------------------------------------------ Aufnehmen
+
+    def start_recording(self, client_id: str | None, name: str, overwrite: bool = False) -> dict[str, Any]:
+        """Aufnahme starten. Ohne Teleoperation geht das Drehmoment aus: Arm von Hand führen."""
+        self.require_control(client_id)
+        if self.recorder is not None:
+            raise ControlError("Es läuft schon eine Aufnahme.")
+        if self.player is not None:
+            raise ControlError("Während des Abspielens wird nicht aufgenommen. Erst stoppen.")
+        run = self.calibration_run
+        if run is not None and run.stage in (Stage.MIDDLE, Stage.RANGE):
+            raise ControlError("Die Kalibrierung läuft. Erst speichern oder abbrechen.")
+        try:
+            check_new_name(name, overwrite=overwrite)
+        except TrajectoryError as exc:
+            raise BackendError(str(exc)) from None
+        joints = [n for n in self.present if self.arm.spec.joint(n).mode is JointMode.POSITION]
+        if self.teleop is not None:
+            self.recording_source = f"Teleoperation, Leader '{self.teleop.leader}'"
+        else:
+            self.run(lambda arm: arm.disable_torque(joints))
+            self.recording_source = "von Hand geführt (Drehmoment aus)"
+        self._recording_overwrite = overwrite
+        self._recording_offsets = self.run(lambda arm: arm.read_homing_offsets(joints))
+        self.recorder = Recorder(name, joints, started=self.clock())
+        self.event("info", f"Aufnahme '{name}' läuft ({self.recording_source}).")
+        return self.recorder.status(self.clock())
+
+    def stop_recording(self, client_id: str | None) -> dict[str, Any] | None:
+        self.require_control(client_id)
+        if self.recorder is None:
+            raise BackendError("Es läuft keine Aufnahme.")
+        self._finish_recording(None)
+        return self.last_recording
+
+    def _finish_recording(self, interrupted: str | None) -> None:
+        """Aufnahme beenden und speichern (auch bei Unterbrechung, dann mit Grund im JSON)."""
+        rec, self.recorder = self.recorder, None
+        if rec is None:
+            return
+        if len(rec.times) < 2:
+            self.event("warn", f"Aufnahme '{rec.name}' verworfen: zu kurz.")
+            self.last_recording = {"name": rec.name, "saved": False}
+            return
+        meta = {
+            "device": self.name,
+            "device_type": self.arm.spec.type,
+            "calibration_id": self.arm.cfg.calibration_id,
+            "calibration_file": str(self.arm.calibration_path) if self.arm.calibration_path else None,
+            "calibration": calibration_to_dict(self.arm.calibration),
+            # Offsets im Servo beim Aufnehmen: Rohwerte hängen davon ab (motion.prepare_playback)
+            "homing_offsets": self._recording_offsets,
+            "target_rate_hz": self.poll_hz,
+            "source": self.recording_source,
+            "recorded_with": "web",
+        }
+        if interrupted:
+            meta["interrupted"] = interrupted
+        traj = rec.trajectory(meta)
+        try:
+            csv_path, _ = save_trajectory(traj, overwrite=self._recording_overwrite)
+        except (TrajectoryError, OSError) as exc:
+            self.event("error", f"Aufnahme '{rec.name}' nicht gespeichert: {exc}")
+            self.last_recording = {"name": rec.name, "saved": False, "error": str(exc)}
+            return
+        rate = traj.sample_rate_hz
+        why = f" (unterbrochen: {interrupted})" if interrupted else ""
+        self.event(
+            "warn" if interrupted else "info",
+            f"Aufnahme '{rec.name}' gespeichert{why}: {len(rec.times)} Abtastungen, {traj.duration_s:.1f} s, "
+            f"{rate or 0:.1f} Hz → {csv_path}",
+        )
+        self.last_recording = {
+            "name": rec.name,
+            "saved": True,
+            "path": str(csv_path),
+            "interrupted": interrupted,
+        }
+
+    # ------------------------------------------------------------ Abspielen
+
+    def _plan_playback(self, name: str) -> tuple[Any, PlaybackPlan]:
+        try:
+            traj = load_trajectory(check_name(name))
+        except TrajectoryError as exc:
+            raise BackendError(str(exc)) from None
+        joints = [n for n in self.present if self.arm.spec.joint(n).mode is JointMode.POSITION]
+        offsets = self.run(lambda arm: arm.read_homing_offsets(joints))
+        try:
+            plan = prepare_playback(
+                traj,
+                self.arm.spec,
+                self.arm.calibration,
+                self.arm.limits,
+                self.arm.cfg.calibration_id,
+                current_offsets=offsets,
+            )
+        except ValueError as exc:
+            raise BackendError(str(exc)) from None
+        missing = [j for j in plan.joints if j not in self.present]
+        if missing:
+            raise BackendError(f"Diese Gelenke antworten nicht: {', '.join(missing)}.")
+        return traj, plan
+
+    def check_playback(self, name: str, speed: float = 1.0) -> dict[str, Any]:
+        """Was beim Abspielen passieren würde (Anfahrt, Dauer, Hinweise). Bewegt nichts."""
+        if not 0.1 <= speed <= 3:
+            raise BackendError("Tempofaktor muss zwischen 0,1 und 3 liegen.")
+        traj, plan = self._plan_playback(name)
+        present = self.run(lambda arm: arm.read_positions(plan.joints))
+        approach = approach_duration(present, plan.rows[0])
+        return {
+            "name": traj.name,
+            "approach_s": round(approach, 1),
+            "play_s": round(traj.duration_s / speed, 1),
+            "conversion": plan.converter.describe(),
+            "calibrated": self.arm.calibration is not None,
+            "notes": plan.notes,
+        }
+
+    def start_playback(self, client_id: str | None, name: str, speed: float = 1.0) -> dict[str, Any]:
+        self._require_free(client_id)
+        if self.recorder is not None:
+            raise ControlError("Erst die laufende Aufnahme beenden.")
+        if not 0.1 <= speed <= 3:
+            raise BackendError("Tempofaktor muss zwischen 0,1 und 3 liegen.")
+        traj, plan = self._plan_playback(name)
+
+        def begin(arm: Arm) -> Player:
+            if not arm.motion_ready:
+                arm.configure_motion(**self._motion_kwargs())
+            arm.enable_torque(plan.joints)  # Ziel = Istposition, kein Sprung
+            present = arm.read_positions(plan.joints)
+            return Player(traj.name, plan.joints, traj.times, plan.rows, present, self.clock(), speed)
+
+        self.player = self.run(begin)
+        how = plan.converter.describe()
+        self.event(
+            "info",
+            f"Spiele '{traj.name}' ab (×{speed:g}): Anfahrt {self.player.approach_s:.1f} s, "
+            f"dann {self.player.play_s:.1f} s. {how[:1].upper()}{how[1:]}.",
+        )
+        for note in plan.notes:
+            self.event("warn", f"'{traj.name}': {note}")
+        return self.player.status(self.clock())
+
+    def stop_playback(self, client_id: str | None) -> None:
+        self.require_control(client_id)
+        if self.player is None:
+            raise BackendError("Es wird nichts abgespielt.")
+        self._stop_following("Abspielen gestoppt", hold=True)
+
+    # ------------------------------------------------------------ Teleoperation
+
+    def start_teleop(self, client_id: str | None, leader: DeviceSession) -> dict[str, Any]:
+        """Dieses Gerät folgt `leader`. Der Leader wird nur gelesen."""
+        self._require_free(client_id)
+        if leader is self:
+            raise BackendError("Leader und Follower müssen verschiedene Geräte sein.")
+        converter = Converter(leader.arm.spec, leader.arm.calibration, self.arm.spec, self.arm.calibration)
+        joints = [j for j in converter.mapping if j in self.present]
+        if not joints:
+            raise BackendError(f"'{leader.name}' und '{self.name}' haben keine gemeinsamen Gelenke.")
+        if leader.latest() is None:
+            raise BackendError(f"Vom Leader '{leader.name}' kommen noch keine Positionen.")
+
+        def begin(arm: Arm) -> TeleopFollow:
+            if not arm.motion_ready:
+                arm.configure_motion(**self._motion_kwargs())
+            present = arm.read_positions(joints)
+            follow = TeleopFollow(leader.name, converter, present, self.clock())  # prüft die Kalibrierung
+            arm.enable_torque(joints)
+            return follow
+
+        try:
+            self.teleop = self.run(begin)
+        except ValueError as exc:
+            raise BackendError(str(exc)) from None
+        self.teleop_leader = leader
+        self.event(
+            "info", f"Teleoperation: folgt '{leader.name}' ({converter.describe()}). Erst sanfte Anfahrt."
+        )
+        return self.teleop.status(self.clock())
+
+    def stop_teleop(self, client_id: str | None) -> None:
+        self.require_control(client_id)
+        if self.teleop is None:
+            raise BackendError("Die Teleoperation läuft nicht.")
+        self._stop_following("Teleoperation gestoppt", hold=True)
+
+    def latest(self) -> tuple[dict[str, int], float] | None:
+        """Zuletzt gelesene Positionen und Zeitpunkt (für einen Follower, der diesem Gerät folgt)."""
+        return None if self._stop.is_set() else self._latest
+
+    # ------------------------------------------------------------ Bewegungsabläufe beenden
+
+    def _stop_following(self, reason: str, hold: bool = False) -> None:
+        """Abspielen und Teleoperation beenden. `hold`: Stellung halten (Drehmoment bleibt an)."""
+        was = "Abspielen" if self.player else "Teleoperation" if self.teleop else None
+        self.player = None
+        self.teleop = None
+        self.teleop_leader = None
+        if was is None:
+            return
+        if hold:
+            self._run_safely(lambda arm: arm.hold(), "Stellung halten")
+        self.event("info", f"{was} beendet: {reason}.")
+
+    def _end_motion(self, reason: str) -> None:
+        """Bei Verlust des Steuerrechts: alles beenden, Aufnahme bis hierher speichern."""
+        self._stop_following(reason)
+        if self.recorder is not None:
+            self._finish_recording(reason)
+
+    def _motion_tick(self, positions: dict[str, int], now: float) -> None:
+        """Einmal je Abfragerunde: aufnehmen, abspielen oder folgen."""
+        rec = self.recorder
+        if rec is not None and not rec.add(positions, now):
+            self._finish_recording(f"Höchstdauer {rec.max_s:.0f} s erreicht")
+        player, teleop = self.player, self.teleop
+        if player is None and teleop is None:
+            return
+        try:
+            if player is not None:
+                targets = player.targets(now)
+                with self.bus_lock:
+                    self.arm.move_to(targets)
+                if player.finished and self.player is player:
+                    self.player = None
+                    self.event("info", f"'{player.name}' fertig abgespielt. Der Arm hält die Endstellung.")
+            elif teleop is not None:
+                leader = self.teleop_leader
+                latest = leader.latest() if leader is not None else None
+                if latest is None or now - latest[1] > LEADER_TIMEOUT_S:
+                    self._stop_following(
+                        "keine aktuellen Werte vom Leader (getrennt oder Lesefehler)", hold=True
+                    )
+                    return
+                with self.bus_lock:
+                    self.arm.move_to(teleop.targets(latest[0], now))
+        except BackendError as exc:
+            self.player = None
+            self.teleop = None
+            self.event("error", f"Bewegung abgebrochen: {exc}. Sicherer Zustand.")
+            self._run_safely(lambda arm: arm.safe_shutdown(), "Sicherer Zustand")
+
     def emergency_stop(self) -> None:
         with self._control_lock:
             self.controller = None
+        self._stop_following("Not-Aus")
         with self.bus_lock:
             self.arm.emergency_stop()  # meldet Fehler je Motor selbst ins Log, wirft nicht
         self._refresh_slow = True
         self.event("error", "NOT-AUS: Räder stopp, Drehmoment aus.")
         self._abort_calibration("Not-Aus")
+        if self.recorder is not None:
+            self._finish_recording("Not-Aus")
 
     def _make_safe(self) -> None:
         self._abort_calibration("Steuerrecht verloren")
+        self._end_motion("Steuerrecht verloren")
         self._run_safely(lambda arm: arm.safe_shutdown(), "Sicherer Zustand")
 
     def _run_safely(self, fn: Callable[[Arm], object], label: str) -> None:
@@ -431,9 +812,12 @@ class DeviceSession:
                         self._refresh_slow = False
                         self._slow = self.arm.read_state(self.present)
                 self._error = None
+                now = self.clock()
+                self._latest = (positions, now)
                 run = self.calibration_run
                 if run is not None:
                     run.track(positions)  # zeichnet nur im Schritt „Bereich“ auf
+                self._motion_tick(positions, now)
                 self._snapshot_joints(positions)
             except BackendError as exc:
                 if self._error != str(exc):
@@ -504,5 +888,10 @@ class DeviceSession:
             "motion": dict(self.motion),
             "calibration": self.calibration_run.status() if self.calibration_run else None,
             "calibration_target": str(target_path(self.arm)),
+            "recording": self.recorder.status(self.clock()) if self.recorder else None,
+            "recording_source": self.recording_source if self.recorder else None,
+            "last_recording": self.last_recording,
+            "playback": self.player.status(self.clock()) if self.player else None,
+            "teleop": self.teleop.status(self.clock()) if self.teleop else None,
             **self._snapshot,
         }

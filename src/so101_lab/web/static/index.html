@@ -58,6 +58,8 @@
       <a href="#servo">Einzelservo</a>
       <a href="#register">Register</a>
       <a href="#kalibrierung">Kalibrierung</a>
+      <a href="#kalibrierdateien">Kalibrierdateien</a>
+      <a href="#aufnahmen">Aufnahmen</a>
       <a href="#einrichtung">Einrichtung</a>
     </nav>
 
@@ -166,6 +168,129 @@
           <thead><tr><th>Gelenk</th><th>Offset</th><th>Min</th><th>Ist</th><th>Max</th><th>Bereich (0…4095)</th></tr></thead>
           <tbody></tbody>
         </table>
+      </div>
+    </section>
+
+    <!-- ============================================================ Kalibrierdateien -->
+    <section class="card tab" id="tab-kalibrierdateien">
+      <h2>Kalibrierdateien</h2>
+      <p class="hint">
+        Alle Kalibrierdateien im Repo (<code>calibration/</code>) und in LeRobots Ablage
+        (<code>~/.cache/huggingface/lerobot/calibration</code>, nur lesen). Welche Datei ein Gerät lädt, steht in
+        <code>config/arms.toml</code> (<code>calibration_id</code>). <b>Löschen</b> macht aus der Datei ein Backup
+        (<code>.json.bak</code>), <b>Wiederherstellen</b> tauscht Datei und Backup. Eine neue Kalibrierung legt das
+        Backup ebenfalls an. Verbundene Geräte laden ihre Datei nach jeder Änderung neu.
+      </p>
+      <div class="row"><button id="calf-refresh" class="secondary">Liste neu laden</button></div>
+      <div class="table-wrap">
+        <table id="calf-table">
+          <thead>
+            <tr><th>Ablage</th><th>Gerätetyp</th><th>ID</th><th>benutzt von</th><th>geändert</th><th>Zustand</th><th>Aktionen</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="calf-detail" hidden>
+        <h2 class="sub" id="calf-title"></h2>
+        <p class="hint" id="calf-path"></p>
+        <ul class="checks" id="calf-problems"></ul>
+        <div class="table-wrap">
+          <table id="calf-joints">
+            <thead><tr><th>Gelenk</th><th>ID</th><th>drive_mode</th><th>Homing-Offset</th><th>range_min</th><th>range_max</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <h2 class="sub">Abgleich mit den Servos</h2>
+      <p class="hint">
+        Für das oben gewählte, verbundene Gerät: Stimmen Homing-Offset und Positionsgrenzen im EEPROM der Servos mit
+        der geladenen Datei überein? Nur dann passen Rohwerte und Grenzen zusammen. Passt es nicht (andere Datei
+        wiederhergestellt oder importiert, Servo getauscht), schreibt <b>Datei in die Servos schreiben</b> die Werte
+        ins EEPROM (nur geänderte, Drehmoment dabei aus), so wie <code>lerobot-calibrate</code> beim Übernehmen
+        einer vorhandenen Datei.
+      </p>
+      <div class="row">
+        <button id="calf-compare">Vergleichen</button>
+        <button id="calf-apply" class="warn">Datei in die Servos schreiben</button>
+        <button id="calf-reload" class="secondary">Datei neu laden</button>
+      </div>
+      <p id="calf-cmp-status" class="status-line"></p>
+      <div class="table-wrap">
+        <table id="calf-cmp">
+          <thead><tr><th>Gelenk</th><th>Offset Datei</th><th>Offset Servo</th><th>Min Datei</th><th>Min Servo</th><th>Max Datei</th><th>Max Servo</th><th>passt</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <h2 class="sub">Importieren</h2>
+      <p class="hint">
+        Eine Kalibrierdatei im LeRobot-Format ins Repo übernehmen, z. B. von einem anderen Rechner. Sie wird geprüft
+        (alle Gelenke, IDs, Bereiche 0…4095). Eine vorhandene Datei gleicher ID wird nur mit Haken ersetzt und bleibt
+        als Backup erhalten.
+      </p>
+      <div class="row">
+        <label>Gerätetyp <select id="calf-type"></select></label>
+        <label>Kalibrier-ID <input id="calf-id" placeholder="z. B. follower_2" autocomplete="off"></label>
+        <label>Datei <input id="calf-file" type="file" accept=".json,application/json"></label>
+        <label class="check"><input type="checkbox" id="calf-overwrite"> vorhandene ersetzen</label>
+        <button id="calf-import">Importieren</button>
+      </div>
+    </section>
+
+    <!-- ============================================================ Aufnahmen -->
+    <section class="card tab" id="tab-aufnahmen">
+      <div class="banner warn" id="rec-calwarn" hidden></div>
+      <h2>Aufnehmen</h2>
+      <p class="hint">
+        Nimmt die Gelenke des oben gewählten Geräts im Takt der Zustandsabfrage auf (Rohwerte, dazu die
+        Kalibrierung). <b>Ohne Teleoperation geht das Drehmoment aus:</b> Den Arm von Hand führen, einen Follower
+        dabei festhalten, er sackt sonst ab. Läuft die Teleoperation, bleibt das Drehmoment an und der folgende Arm
+        wird aufgenommen. Gespeichert wird beim Stoppen, bei einer Unterbrechung (Watchdog, Not-Aus) bis dahin.
+      </p>
+      <div class="row">
+        <label>Name <input id="rec-name" placeholder="z. B. winken" autocomplete="off"></label>
+        <label class="check"><input type="checkbox" id="rec-overwrite"> vorhandene ersetzen</label>
+        <button id="rec-start" class="warn">Aufnahme starten</button>
+        <button id="rec-stop">Stoppen und speichern</button>
+      </div>
+      <p id="rec-status" class="status-line"></p>
+
+      <h2 class="sub">Teleoperation (Leader führt, dieses Gerät folgt)</h2>
+      <p class="hint">
+        Beide Geräte oben nacheinander verbinden, dann hier das <b>folgende</b> Gerät oben auswählen und den Leader
+        wählen. Beide müssen kalibriert sein: Umgerechnet wird über Grad/Prozent wie bei LeRobot. Erst fährt der
+        Follower sanft zur Stellung des Leaders, dann folgt er. Kommen vom Leader keine Werte mehr, hält er an.
+      </p>
+      <div class="row">
+        <label>Leader <select id="tele-leader"></select></label>
+        <button id="tele-start" class="warn">Folgen starten</button>
+        <button id="tele-stop">Stoppen</button>
+      </div>
+      <p id="tele-status" class="status-line"></p>
+
+      <h2 class="sub">Abspielen</h2>
+      <div class="row">
+        <label>Tempo (×0,1…3) <input id="play-speed" type="number" min="0.1" max="3" step="0.1" value="1"></label>
+        <button id="play-stop">Abspielen stoppen</button>
+      </div>
+      <div class="progress" id="play-progress"><div></div></div>
+      <p id="play-status" class="status-line"></p>
+
+      <h2 class="sub">Bibliothek <small>(recordings/trajectories/)</small></h2>
+      <div class="row"><button id="lib-refresh" class="secondary">Liste neu laden</button></div>
+      <div class="table-wrap">
+        <table id="lib-table">
+          <thead>
+            <tr><th>Name</th><th>Gerät</th><th>Quelle</th><th>Dauer</th><th>Abtastungen</th><th>Rate</th><th>Erstellt</th><th>Aktionen</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="lib-plot-wrap">
+        <h2 class="sub" id="lib-plot-title"></h2>
+        <svg id="lib-plot" viewBox="0 0 800 260" role="img"></svg>
+        <div class="legend" id="lib-legend"></div>
       </div>
     </section>
 

@@ -235,6 +235,8 @@ function render() {
   renderServo(snap, mine);
   renderRegisterControls(snap, mine);
   renderCalibration(snap, mine);
+  renderMotion(snap, mine);
+  renderCalFiles(snap, mine);
   renderSetup();
 }
 
@@ -377,6 +379,8 @@ async function main() {
   bindRegisters();
   bindCalibration();
   bindSetup();
+  bindMotion();
+  bindCalFiles();
   const info = await (await fetch("/api/info")).json();
   if (!info.docs) {
     $("docs-link").classList.add("disabled");
@@ -391,12 +395,14 @@ async function main() {
 
 // ------------------------------------------------------------------ Reiter
 
-const TABS = ["status", "servo", "register", "kalibrierung", "einrichtung"];
+const TABS = ["status", "servo", "register", "kalibrierung", "kalibrierdateien", "aufnahmen", "einrichtung"];
 
 function showTab() {
   const tab = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "status";
   for (const t of TABS) $(`tab-${t}`).classList.toggle("active", t === tab);
   for (const a of $("tabs").querySelectorAll("a")) a.classList.toggle("active", a.hash === `#${tab}`);
+  if (tab === "aufnahmen") action(loadLibrary);
+  if (tab === "kalibrierdateien") action(loadCalFiles);
 }
 
 function bindTabs() {
@@ -685,6 +691,458 @@ function bindCalibration() {
   $("cal-middle").onclick = () => calibrationStep("middle");
   $("cal-finish").onclick = () => calibrationStep("finish");
   $("cal-cancel").onclick = () => calibrationStep("cancel");
+}
+
+// ------------------------------------------------------------------ Aufnahmen
+
+const lib = { items: [], lastSaved: null };
+
+async function loadLibrary() {
+  lib.items = await api("GET", "/api/trajectories");
+  renderLibrary();
+  render();
+}
+
+function td(text) {
+  const cell = document.createElement("td");
+  cell.textContent = text;
+  return cell;
+}
+
+function renderLibrary() {
+  const body = $("lib-table").querySelector("tbody");
+  body.innerHTML = "";
+  if (!lib.items.length) {
+    const tr = document.createElement("tr");
+    const cell = td("Noch keine Aufnahmen.");
+    cell.colSpan = 8;
+    tr.append(cell);
+    body.append(tr);
+    return;
+  }
+  for (const t of lib.items) {
+    const tr = document.createElement("tr");
+    tr.dataset.name = t.name;
+    const created = t.created ? new Date(t.created) : new Date(t.modified * 1000);
+    const source = (t.source ?? (t.recorded_with ? "" : "Skript 06")) + (t.interrupted ? ` – unterbrochen: ${t.interrupted}` : "");
+    tr.append(
+      td(t.name),
+      td(`${t.device ?? "?"} (${t.device_type ?? "?"})`),
+      td(source || "–"),
+      td(`${fmt(t.duration_s, 1)} s`),
+      td(t.samples ?? "–"),
+      td(t.measured_rate_hz ? `${fmt(t.measured_rate_hz, 1)} Hz` : "–"),
+      td(created.toLocaleString("de-DE")),
+    );
+    const actions = document.createElement("td");
+    const view = document.createElement("button");
+    view.textContent = "Ansehen";
+    view.className = "secondary";
+    view.onclick = () => action(() => showTrajectory(t.name));
+    const play = document.createElement("button");
+    play.textContent = "Abspielen";
+    play.className = "warn play";
+    play.onclick = () => action(() => playTrajectory(t));
+    const csv = document.createElement("a");
+    csv.textContent = "CSV";
+    csv.href = `/api/trajectories/${encodeURIComponent(t.name)}/csv${app.token ? `?token=${encodeURIComponent(app.token)}` : ""}`;
+    csv.download = `${t.name}.csv`;
+    const del = document.createElement("button");
+    del.textContent = "Löschen";
+    del.className = "secondary del";
+    del.onclick = () => action(() => deleteTrajectory(t.name));
+    actions.append(view, play, del, csv);
+    tr.append(actions);
+    body.append(tr);
+  }
+}
+
+async function showTrajectory(name) {
+  const d = await api("GET", `/api/trajectories/${encodeURIComponent(name)}`);
+  for (const tr of $("lib-table").querySelectorAll("tbody tr")) tr.classList.toggle("selected", tr.dataset.name === name);
+  const W = 800, H = 260, left = 44, right = 8, top = 8, bottom = 22;
+  let lo = Infinity, hi = -Infinity;
+  for (const row of d.positions) for (const v of row) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+  if (hi - lo < 20) { lo -= 10; hi += 10; }
+  const tMax = d.times[d.times.length - 1] || 1;
+  const x = (t) => left + (t / tMax) * (W - left - right);
+  const y = (v) => top + (1 - (v - lo) / (hi - lo)) * (H - top - bottom);
+  let svg = "";
+  for (const v of [lo, (lo + hi) / 2, hi]) {
+    svg += `<line class="grid" x1="${left}" x2="${W - right}" y1="${y(v)}" y2="${y(v)}"/>`;
+    svg += `<text x="4" y="${y(v) + 4}">${Math.round(v)}</text>`;
+  }
+  svg += `<text x="${left}" y="${H - 6}">0 s</text><text x="${W - right - 40}" y="${H - 6}">${tMax.toFixed(1)} s</text>`;
+  d.joints.forEach((joint, j) => {
+    const points = d.times.map((t, i) => `${x(t).toFixed(1)},${y(d.positions[i][j]).toFixed(1)}`).join(" ");
+    svg += `<polyline points="${points}" style="stroke: var(--c${(j % 6) + 1})"/>`;
+  });
+  $("lib-plot").innerHTML = svg;
+  const legend = $("lib-legend");
+  legend.innerHTML = "";
+  d.joints.forEach((joint, j) => {
+    const span = document.createElement("span");
+    span.style.setProperty("--swatch", `var(--c${(j % 6) + 1})`);
+    span.textContent = joint;
+    legend.append(span);
+  });
+  const conv = d.has_calibration ? "mit Kalibrierung gespeichert" : "ohne gespeicherte Kalibrierung";
+  $("lib-plot-title").textContent = `${d.name}: Rohwerte (Schritte) über der Zeit, ${d.joints.length} Gelenke, ${conv}`;
+  $("lib-plot-wrap").classList.add("show");
+}
+
+async function playTrajectory(t) {
+  const snap = currentSnap();
+  if (!snap) throw new Error("Erst oben ein Gerät verbinden und die Steuerung übernehmen.");
+  const speed = Number($("play-speed").value);
+  // Erst prüfen lassen (bewegt nichts): Anfahrt, Dauer, Umrechnung, Hinweise wie „begrenzt“
+  const check = await api(
+    "GET",
+    deviceUrl(`playback/check?trajectory=${encodeURIComponent(t.name)}&speed=${encodeURIComponent(speed)}`),
+  );
+  const notes = check.notes.length ? `\n\nHinweise:\n${check.notes.map((n) => `• ${n}`).join("\n")}` : "";
+  const ok = await ask(
+    `'${t.name}' auf '${snap.name}' abspielen (Tempo ×${speed})?\n\n` +
+      `Erst fährt der Arm in ${check.approach_s} s sanft zur Startpose, dann läuft die Aufnahme ${check.play_s} s. ` +
+      "Danach hält er die Endstellung (Drehmoment an, bis „Steuerung abgeben“). " +
+      `Umrechnung: ${check.conversion}.${notes}\n\nArbeitsbereich frei, Hand am Not-Aus (Esc)?`,
+    "Abspielen",
+  );
+  if (!ok) return;
+  await api("POST", deviceUrl("playback/start"), { client_id: app.clientId, trajectory: t.name, speed });
+}
+
+async function deleteTrajectory(name) {
+  if (!(await ask(`Aufnahme '${name}' (CSV und JSON) endgültig löschen?`, "Löschen"))) return;
+  await api("DELETE", `/api/trajectories/${encodeURIComponent(name)}?client_id=${encodeURIComponent(app.clientId ?? "")}`);
+  $("lib-plot-wrap").classList.remove("show");
+  await loadLibrary();
+}
+
+function renderMotion(snap, mine) {
+  const warn = $("rec-calwarn");
+  const uncalibrated = Boolean(snap && !snap.calibration_path);
+  warn.hidden = !uncalibrated;
+  if (uncalibrated && warn.dataset.device !== snap.name) {
+    warn.dataset.device = snap.name;
+    warn.innerHTML = "";
+    warn.append(
+      `Keine Kalibrierdatei für '${snap.name}' (ID '${snap.calibration_id}'). Aufnehmen und Abspielen gehen trotzdem, ` +
+        "aber die Grenzen sind 0…4095: Ein Gelenk kann gegen einen Anschlag fahren. Empfohlen: ",
+    );
+    const link = document.createElement("a");
+    link.href = "#kalibrierung";
+    link.textContent = "erst kalibrieren";
+    const files = document.createElement("a");
+    files.href = "#kalibrierdateien";
+    files.textContent = "Kalibrierdateien ansehen";
+    warn.append(link, " oder ", files, ".");
+  }
+  if (!uncalibrated) warn.dataset.device = "";
+  const rec = snap?.recording;
+  const play = snap?.playback;
+  const tele = snap?.teleop;
+  $("rec-start").disabled = !mine || Boolean(rec) || Boolean(play);
+  $("rec-stop").disabled = !mine || !rec;
+  const recStatus = $("rec-status");
+  recStatus.className = rec ? "status-line live" : "status-line";
+  const last = snap?.last_recording;
+  recStatus.textContent = rec
+    ? `● Aufnahme '${rec.name}' läuft: ${fmt(rec.elapsed_s, 1)} s, ${rec.samples} Abtastungen – ${snap.recording_source}`
+    : last
+      ? last.saved
+        ? `Zuletzt gespeichert: ${last.path}${last.interrupted ? ` (unterbrochen: ${last.interrupted})` : ""}`
+        : `Zuletzt: '${last.name}' nicht gespeichert${last.error ? `: ${last.error}` : " (zu kurz)"}`
+      : "";
+  const lastKey = JSON.stringify(last ?? null);
+  if (lib.lastSaved !== lastKey) {
+    const first = lib.lastSaved === null;
+    lib.lastSaved = lastKey;
+    if (!first && last?.saved) action(loadLibrary);
+  }
+
+  // Leader: alle anderen verbundenen Geräte
+  const select = $("tele-leader");
+  const others = Object.keys(app.snapshots).filter((n) => n !== snap?.name);
+  if (select.dataset.names !== others.join()) {
+    const keep = select.value;
+    select.innerHTML = "";
+    if (!others.length) select.add(new Option("kein anderes Gerät verbunden", ""));
+    for (const n of others) select.add(new Option(`${n} (${app.snapshots[n].type})`, n));
+    if (others.includes(keep)) select.value = keep;
+    select.dataset.names = others.join();
+  }
+  $("tele-start").disabled = !mine || Boolean(tele) || Boolean(play) || !others.length;
+  $("tele-stop").disabled = !mine || !tele;
+  $("tele-status").className = tele ? "status-line live" : "status-line";
+  $("tele-status").textContent = tele
+    ? `Folgt '${tele.leader}': ${tele.phase === "anfahrt" ? "sanfte Anfahrt …" : "folgt"} (${tele.conversion})`
+    : "";
+
+  $("play-stop").disabled = !mine || !play;
+  $("play-progress").firstElementChild.style.width = play ? `${Math.min(100, (play.elapsed_s / play.total_s) * 100)}%` : "0";
+  $("play-status").className = play ? "status-line live" : "status-line";
+  $("play-status").textContent = play
+    ? `'${play.name}' ×${play.speed}: ${play.phase === "anfahrt" ? `sanfte Anfahrt (${play.approach_s} s)` : "spielt ab"}, ${fmt(play.elapsed_s, 1)} von ${fmt(play.total_s, 1)} s`
+    : snap && !mine
+      ? "Zum Abspielen, Aufnehmen oder Folgen erst „Steuerung übernehmen“."
+      : "";
+  for (const b of $("lib-table").querySelectorAll("button.play")) b.disabled = !mine || Boolean(play) || Boolean(tele) || Boolean(rec);
+  for (const b of $("lib-table").querySelectorAll("button.del")) b.disabled = !app.clientId;
+}
+
+function bindMotion() {
+  $("lib-refresh").onclick = () => action(loadLibrary);
+  $("rec-start").onclick = () =>
+    action(async () => {
+      const name = $("rec-name").value.trim();
+      if (!name) throw new Error("Bitte einen Namen für die Aufnahme eingeben.");
+      const snap = currentSnap();
+      if (!snap?.teleop) {
+        const ok = await ask(
+          `Aufnahme '${name}' auf '${snap.name}' starten?\n\nDas Drehmoment geht aus, der Arm wird kraftlos. ` +
+            "Einen Follower festhalten, er sackt sonst ab. Dann von Hand führen.",
+          "Starten",
+        );
+        if (!ok) return;
+      }
+      await api("POST", deviceUrl("recording/start"), {
+        client_id: app.clientId,
+        name,
+        overwrite: $("rec-overwrite").checked,
+      });
+    });
+  $("rec-stop").onclick = () =>
+    action(async () => {
+      const result = await api("POST", deviceUrl("recording/stop"), { client_id: app.clientId });
+      toast(result?.saved ? `Gespeichert: ${result.path}` : "Nicht gespeichert (zu kurz).", result?.saved ? "info" : "error");
+      await loadLibrary();
+    });
+  $("tele-start").onclick = () =>
+    action(async () => {
+      const leader = $("tele-leader").value;
+      const snap = currentSnap();
+      const ok = await ask(
+        `'${snap.name}' folgt ab jetzt '${leader}'.\n\nDas Drehmoment von '${snap.name}' geht an. Er fährt erst in ` +
+          "mindestens 2 s sanft zur Stellung des Leaders und folgt ihm dann. Arbeitsbereich frei?",
+        "Folgen",
+      );
+      if (!ok) return;
+      await api("POST", deviceUrl("teleop/start"), { client_id: app.clientId, leader });
+    });
+  $("tele-stop").onclick = () => action(() => api("POST", deviceUrl("teleop/stop"), { client_id: app.clientId }));
+  $("play-stop").onclick = () => action(() => api("POST", deviceUrl("playback/stop"), { client_id: app.clientId }));
+}
+
+// ------------------------------------------------------------------ Kalibrierdateien
+
+const calf = { items: [], shown: null, calPath: undefined };
+
+function calUrl(item, suffix = "") {
+  return `/api/calibrations/${item.source}/${item.kind}/${item.name}/${encodeURIComponent(item.id)}${suffix}`;
+}
+
+async function loadCalFiles() {
+  calf.items = await api("GET", "/api/calibrations");
+  const body = $("calf-table").querySelector("tbody");
+  body.innerHTML = "";
+  if (!calf.items.length) {
+    const tr = document.createElement("tr");
+    const cell = td("Keine Kalibrierdateien gefunden.");
+    cell.colSpan = 7;
+    tr.append(cell);
+    body.append(tr);
+  }
+  for (const item of calf.items) {
+    const tr = document.createElement("tr");
+    tr.dataset.key = `${item.source}/${item.kind}/${item.name}/${item.id}`;
+    const state = td(
+      !item.exists ? "gelöscht (Backup vorhanden)" : item.problems.length ? `⚠ ${item.problems.join(" ")}` : "in Ordnung",
+    );
+    state.className = !item.exists ? "gone" : item.problems.length ? "bad" : "ok";
+    tr.append(
+      td(item.source === "repo" ? "Repo" : "LeRobot"),
+      td(`${item.device_type} (${item.kind}/${item.name})`),
+      td(item.id + (item.has_backup && item.exists ? " (+ Backup)" : "")),
+      td(item.used_by.join(", ") || "–"),
+      td(new Date(item.modified * 1000).toLocaleString("de-DE")),
+      state,
+    );
+    const actions = document.createElement("td");
+    const button = (label, cls, fn) => {
+      const b = document.createElement("button");
+      b.textContent = label;
+      b.className = cls;
+      b.onclick = () => action(fn);
+      actions.append(b);
+      return b;
+    };
+    if (item.exists) button("Ansehen", "secondary", () => showCalFile(item, false));
+    if (item.has_backup) button("Backup ansehen", "secondary", () => showCalFile(item, true));
+    if (item.source === "repo" && item.exists) button("Löschen", "secondary needs-live", () => deleteCalFile(item));
+    if (item.source === "repo" && item.has_backup) button("Wiederherstellen", "secondary needs-live", () => restoreCalFile(item));
+    if (item.source === "lerobot" && item.exists) button("Ins Repo kopieren", "secondary needs-live", () => copyCalFile(item));
+    if (item.exists) {
+      const link = document.createElement("a");
+      link.textContent = "JSON";
+      link.href = calUrl(item, "/json") + (app.token ? `?token=${encodeURIComponent(app.token)}` : "");
+      link.download = `${item.id}.json`;
+      actions.append(link);
+    }
+    tr.append(actions);
+    body.append(tr);
+  }
+  render();
+}
+
+async function showCalFile(item, backup) {
+  const d = await api("GET", calUrl(item) + (backup ? "?backup=true" : ""));
+  calf.shown = { ...item, backup };
+  for (const tr of $("calf-table").querySelectorAll("tbody tr"))
+    tr.classList.toggle("selected", tr.dataset.key === `${item.source}/${item.kind}/${item.name}/${item.id}`);
+  $("calf-detail").hidden = false;
+  $("calf-title").textContent = `${d.id}${backup ? " (Backup)" : ""}: ${d.device_type}${d.used_by.length ? `, benutzt von ${d.used_by.join(", ")}` : ""}`;
+  $("calf-path").textContent = d.path;
+  const problems = $("calf-problems");
+  problems.innerHTML = "";
+  for (const text of d.problems) {
+    const li = document.createElement("li");
+    li.className = "bad";
+    li.textContent = text;
+    problems.append(li);
+  }
+  const body = $("calf-joints").querySelector("tbody");
+  body.innerHTML = "";
+  for (const j of d.joints) {
+    const tr = document.createElement("tr");
+    tr.append(td(j.name), td(j.id), td(j.drive_mode), td(j.homing_offset), td(j.range_min), td(j.range_max));
+    body.append(tr);
+  }
+}
+
+async function deleteCalFile(item) {
+  const users = item.used_by.length ? `\n\nBenutzt von: ${item.used_by.join(", ")}. Diese Geräte haben danach keine Kalibrierung mehr (Grenzen 0…4095).` : "";
+  if (!(await ask(`Kalibrierdatei '${item.id}' löschen?\n\nSie wird zu ${item.id}.json.bak und lässt sich wiederherstellen. Ein älteres Backup wird ersetzt.${users}`, "Löschen"))) return;
+  await api("POST", calUrl(item, "/delete"), { client_id: app.clientId });
+  $("calf-detail").hidden = true;
+  await loadCalFiles();
+}
+
+async function restoreCalFile(item) {
+  const text = item.exists
+    ? `Datei und Backup von '${item.id}' tauschen? Die aktuelle Datei wird zum Backup.`
+    : `Gelöschte Kalibrierdatei '${item.id}' aus dem Backup wiederherstellen?`;
+  if (!(await ask(`${text}\n\nDanach mit „Vergleichen“ prüfen, ob die Servos zur Datei passen.`, "Wiederherstellen"))) return;
+  await api("POST", calUrl(item, "/restore"), { client_id: app.clientId });
+  await loadCalFiles();
+  toast("Wiederhergestellt. Jetzt „Vergleichen“: Passen die Servos zur Datei?", "info");
+}
+
+async function copyCalFile(item) {
+  const exists = calf.items.some((i) => i.source === "repo" && i.kind === item.kind && i.name === item.name && i.id === item.id && i.exists);
+  if (exists && !(await ask(`Im Repo gibt es '${item.id}' schon. Ersetzen (die alte wird Backup)?`, "Ersetzen"))) return;
+  await api("POST", calUrl(item, "/copy"), { client_id: app.clientId, overwrite: exists });
+  await loadCalFiles();
+}
+
+function renderCompare(result) {
+  const body = $("calf-cmp").querySelector("tbody");
+  body.innerHTML = "";
+  for (const j of result.joints) {
+    const tr = document.createElement("tr");
+    const f = j.file ?? {};
+    const pairs = [
+      [f.homing_offset, j.servo.homing_offset],
+      [f.min_position_limit, j.servo.min_position_limit],
+      [f.max_position_limit, j.servo.max_position_limit],
+    ];
+    tr.append(td(j.name));
+    for (const [a, b] of pairs) {
+      tr.append(td(a ?? "–"));
+      const cell = td(b ?? "keine Antwort");
+      if (j.file && a !== b) cell.className = "bad";
+      tr.append(cell);
+    }
+    const ok = td(j.file ? (j.match ? "✔" : "✘") : "keine Datei");
+    ok.className = j.match ? "ok" : "bad";
+    tr.append(ok);
+    body.append(tr);
+  }
+  const status = $("calf-cmp-status");
+  status.className = result.all_match ? "status-line" : "status-line live";
+  status.textContent = !result.calibration_path
+    ? "Für dieses Gerät ist keine Kalibrierdatei geladen."
+    : result.all_match
+      ? `Servos und Datei stimmen überein (${result.calibration_path}).`
+      : `Servos und Datei weichen ab (${result.calibration_path}). Rohwerte und Grenzen passen dann nicht zusammen.`;
+}
+
+function renderCalFiles(snap, mine) {
+  $("calf-compare").disabled = !snap;
+  $("calf-reload").disabled = !snap || !app.clientId;
+  $("calf-apply").disabled = !mine || !snap?.calibration_path;
+  $("calf-import").disabled = !app.clientId;
+  for (const b of $("calf-table").querySelectorAll("button.needs-live")) b.disabled = !app.clientId;
+  // Gerät gewechselt oder Datei neu geladen: alten Vergleich nicht stehen lassen
+  const key = snap ? `${snap.name}|${snap.calibration_path}` : "";
+  if (calf.calPath !== key) {
+    calf.calPath = key;
+    $("calf-cmp").querySelector("tbody").innerHTML = "";
+    $("calf-cmp-status").textContent = snap
+      ? `Gerät '${snap.name}', Datei: ${snap.calibration_path ?? "keine"}. „Vergleichen“ liest die Servos.`
+      : "Oben ein Gerät verbinden, um Datei und Servos zu vergleichen.";
+    $("calf-cmp-status").className = "status-line";
+  }
+  const select = $("calf-type");
+  if (!select.options.length && app.setupTypes.length) {
+    for (const t of app.setupTypes) select.add(new Option(`${t.type} – ${t.description}`, t.type));
+  }
+}
+
+function bindCalFiles() {
+  $("calf-refresh").onclick = () => action(loadCalFiles);
+  $("calf-compare").onclick = () => action(async () => renderCompare(await api("GET", deviceUrl("calibration/compare"))));
+  $("calf-reload").onclick = () =>
+    action(async () => {
+      await api("POST", deviceUrl("calibration/reload"), { client_id: app.clientId });
+      await loadCalFiles();
+    });
+  $("calf-apply").onclick = () =>
+    action(async () => {
+      const snap = currentSnap();
+      const ok = await ask(
+        `Werte aus ${snap.calibration_path} in die Servos von '${snap.name}' schreiben?\n\n` +
+          "Homing-Offset und Positionsgrenzen werden dauerhaft ins EEPROM geschrieben (nur geänderte). Das " +
+          "Drehmoment der betroffenen Servos geht dabei aus: Arm festhalten. Nur sinnvoll, wenn die Datei " +
+          "wirklich zu diesem Arm gehört.",
+        "Schreiben",
+      );
+      if (!ok) return;
+      const result = await api("POST", deviceUrl("calibration/apply"), { client_id: app.clientId });
+      renderCompare(result);
+      toast(result.written.length ? `${result.written.length} Werte geschrieben.` : "Stimmte schon überein.", "info");
+    });
+  $("calf-import").onclick = () =>
+    action(async () => {
+      const file = $("calf-file").files[0];
+      const calId = $("calf-id").value.trim() || (file ? file.name.replace(/\.json$/i, "") : "");
+      if (!file) throw new Error("Bitte eine JSON-Datei wählen.");
+      let content;
+      try {
+        content = JSON.parse(await file.text());
+      } catch {
+        throw new Error(`${file.name} ist kein gültiges JSON.`);
+      }
+      const result = await api("POST", "/api/calibrations/import", {
+        client_id: app.clientId,
+        device_type: $("calf-type").value,
+        cal_id: calId,
+        content,
+        overwrite: $("calf-overwrite").checked,
+      });
+      toast(`Importiert: ${result.path}`, "info");
+      await loadCalFiles();
+    });
 }
 
 // ------------------------------------------------------------------ Einrichtung (Servo-IDs)

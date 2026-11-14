@@ -26,14 +26,16 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .. import __version__
 from ..backends.base import BackendError
+from ..calibration_files import CalibrationFileError, CalRef
 from ..config import ConfigError, load_config
 from ..safety import connect_arm
+from ..trajectories import TrajectoryError
 from .session import ControlError, DeviceSession
 from .setup_session import MOCK_PORT, SIMULATED_PLUGS, SetupSession
 
@@ -221,6 +223,31 @@ class RegisterWriteRequest(ClientRequest):
     confirm_eeprom: bool = False
 
 
+class RecordingRequest(ClientRequest):
+    name: str
+    overwrite: bool = False
+
+
+class PlaybackRequest(ClientRequest):
+    trajectory: str
+    speed: float = 1.0
+
+
+class TeleopRequest(ClientRequest):
+    leader: str  # Gerätename des Leaders (muss verbunden sein)
+
+
+class CalibrationImportRequest(ClientRequest):
+    device_type: str  # so101_follower | so101_leader | lekiwi (bestimmt den Ordner)
+    cal_id: str
+    content: Any  # Inhalt der JSON-Datei
+    overwrite: bool = False
+
+
+class OverwriteRequest(ClientRequest):
+    overwrite: bool = False
+
+
 class SetupStartRequest(ClientRequest):
     port: str  # serieller Port oder "mock" (Simulation)
     device_type: str  # so101_follower | so101_leader | lekiwi
@@ -260,6 +287,14 @@ def create_app(server: LabServer, docs_dir: Path | None = None) -> FastAPI:
 
     @app.exception_handler(BackendError)
     async def _backend_error(_request: Request, exc: BackendError) -> JSONResponse:
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+
+    @app.exception_handler(CalibrationFileError)
+    async def _calfile_error(_request: Request, exc: CalibrationFileError) -> JSONResponse:
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+
+    @app.exception_handler(TrajectoryError)
+    async def _trajectory_error(_request: Request, exc: TrajectoryError) -> JSONResponse:
         return JSONResponse({"detail": str(exc)}, status_code=400)
 
     @app.exception_handler(ConfigError)
@@ -370,10 +405,172 @@ def create_app(server: LabServer, docs_dir: Path | None = None) -> FastAPI:
             "middle": session.calibration_middle,
             "finish": session.calibration_finish,
             "cancel": session.calibration_cancel,
+            "apply": session.apply_calibration,  # Datei → EEPROM der Servos
+            "reload": session.reload_calibration,  # Datei neu laden
         }
         if step not in steps:
             raise HTTPException(404, f"Unbekannter Kalibrierschritt '{step}'.")
         return steps[step](server.require_client(body.client_id))
+
+    # --- Aufnehmen, Abspielen, Teleoperation -----------------------------------------
+
+    @app.post("/api/devices/{name}/recording/start", dependencies=[Depends(auth)])
+    def recording_start(name: str, body: RecordingRequest) -> dict[str, Any]:
+        client = server.require_client(body.client_id)
+        return server.session(name).start_recording(client, body.name, overwrite=body.overwrite)
+
+    @app.post("/api/devices/{name}/recording/stop", dependencies=[Depends(auth)])
+    def recording_stop(name: str, body: ClientRequest) -> dict[str, Any] | None:
+        return server.session(name).stop_recording(server.require_client(body.client_id))
+
+    @app.get("/api/devices/{name}/playback/check", dependencies=[Depends(auth)])
+    def playback_check(name: str, trajectory: str, speed: float = 1.0) -> dict[str, Any]:
+        """Vorschau: Anfahrt, Dauer, Umrechnung und Hinweise. Bewegt nichts."""
+        return server.session(name).check_playback(trajectory, speed)
+
+    @app.post("/api/devices/{name}/playback/start", dependencies=[Depends(auth)])
+    def playback_start(name: str, body: PlaybackRequest) -> dict[str, Any]:
+        client = server.require_client(body.client_id)
+        return server.session(name).start_playback(client, body.trajectory, body.speed)
+
+    @app.post("/api/devices/{name}/playback/stop", dependencies=[Depends(auth)])
+    def playback_stop(name: str, body: ClientRequest) -> dict[str, str]:
+        server.session(name).stop_playback(server.require_client(body.client_id))
+        return {"status": "gestoppt"}
+
+    @app.post("/api/devices/{name}/teleop/start", dependencies=[Depends(auth)])
+    def teleop_start(name: str, body: TeleopRequest) -> dict[str, Any]:
+        client = server.require_client(body.client_id)
+        follower, leader = server.session(name), server.session(body.leader)
+        return follower.start_teleop(client, leader)
+
+    @app.post("/api/devices/{name}/teleop/stop", dependencies=[Depends(auth)])
+    def teleop_stop(name: str, body: ClientRequest) -> dict[str, str]:
+        server.session(name).stop_teleop(server.require_client(body.client_id))
+        return {"status": "gestoppt"}
+
+    # --- Kalibrierdateien -----------------------------------------------------------------
+
+    def config_or_none():
+        try:
+            return server.config()
+        except ConfigError:
+            return None
+
+    def reload_users(ref: CalRef) -> None:
+        """Verbundene Geräte, die diese Kalibrierung benutzen, laden ihre Datei neu."""
+        for session in list(server.sessions.values()):
+            spec, cfg = session.arm.spec, session.arm.cfg
+            if (spec.lerobot_kind, spec.lerobot_name, cfg.calibration_id) == (ref.kind, ref.name, ref.cal_id):
+                with contextlib.suppress(ControlError):  # läuft gerade eine Kalibrierung: nicht anfassen
+                    session.reload_calibration(quiet=True)
+
+    @app.get("/api/devices/{name}/calibration/compare", dependencies=[Depends(auth)])
+    def calibration_compare(name: str) -> dict[str, Any]:
+        return server.session(name).compare_calibration()
+
+    @app.get("/api/calibrations", dependencies=[Depends(auth)])
+    def calibrations() -> list[dict[str, Any]]:
+        from ..calibration_files import list_files
+
+        return list_files(config_or_none())
+
+    @app.get("/api/calibrations/{source}/{kind}/{folder}/{cal_id}", dependencies=[Depends(auth)])
+    def calibration_file(
+        source: str, kind: str, folder: str, cal_id: str, backup: bool = False
+    ) -> dict[str, Any]:
+        from ..calibration_files import read_file
+
+        return read_file(CalRef(source, kind, folder, cal_id), config_or_none(), backup=backup)
+
+    @app.get("/api/calibrations/{source}/{kind}/{folder}/{cal_id}/json", dependencies=[Depends(auth)])
+    def calibration_download(source: str, kind: str, folder: str, cal_id: str) -> FileResponse:
+        ref = CalRef(source, kind, folder, cal_id)
+        if not ref.path.is_file():
+            raise HTTPException(404, f"{ref.path} gibt es nicht.")
+        return FileResponse(ref.path, media_type="application/json", filename=ref.path.name)
+
+    @app.post("/api/calibrations/{source}/{kind}/{folder}/{cal_id}/{action}", dependencies=[Depends(auth)])
+    def calibration_action(
+        source: str, kind: str, folder: str, cal_id: str, action: str, body: OverwriteRequest
+    ) -> dict[str, Any]:
+        from .. import calibration_files as files
+
+        server.require_client(body.client_id)
+        ref = CalRef(source, kind, folder, cal_id)
+        if action == "delete":
+            path = files.delete(ref)
+            reload_users(ref)
+            return {"backup": str(path)}
+        if action == "restore":
+            path = files.restore(ref)
+            reload_users(ref)
+            return {"path": str(path)}
+        if action == "copy":
+            path = files.copy_to_repo(ref, overwrite=body.overwrite)
+            reload_users(CalRef("repo", kind, folder, cal_id))
+            return {"path": str(path)}
+        raise HTTPException(404, f"Unbekannte Aktion '{action}'.")
+
+    @app.post("/api/calibrations/import", dependencies=[Depends(auth)])
+    def calibration_import(body: CalibrationImportRequest) -> dict[str, Any]:
+        from ..calibration_files import save_new
+        from ..devices import get_device_spec
+
+        server.require_client(body.client_id)
+        try:
+            spec = get_device_spec(body.device_type)
+        except KeyError as exc:
+            raise HTTPException(400, str(exc.args[0])) from None
+        ref = CalRef("repo", spec.lerobot_kind, spec.lerobot_name, body.cal_id)
+        path = save_new(ref, body.content, overwrite=body.overwrite)
+        reload_users(ref)
+        return {"path": str(path)}
+
+    # --- Bibliothek der Aufnahmen ------------------------------------------------------
+
+    @app.get("/api/trajectories", dependencies=[Depends(auth)])
+    def trajectories() -> list[dict[str, Any]]:
+        from ..trajectories import list_trajectories
+
+        return list_trajectories()
+
+    @app.get("/api/trajectories/{traj_name}", dependencies=[Depends(auth)])
+    def trajectory(traj_name: str) -> dict[str, Any]:
+        """Beschreibung und Kurven (auf höchstens 400 Punkte ausgedünnt) für die Anzeige."""
+        from ..trajectories import check_name, load_trajectory
+
+        traj = load_trajectory(check_name(traj_name))
+        step = max(1, len(traj.times) // 400)
+        index = list(range(0, len(traj.times), step))
+        if index[-1] != len(traj.times) - 1:
+            index.append(len(traj.times) - 1)
+        meta = {k: v for k, v in traj.meta.items() if k != "calibration"}
+        return {
+            **meta,
+            "name": traj.name,
+            "joints": list(traj.joints),
+            "has_calibration": bool(traj.meta.get("calibration")),
+            "times": [round(traj.times[i], 4) for i in index],
+            "positions": [list(traj.positions[i]) for i in index],
+        }
+
+    @app.get("/api/trajectories/{traj_name}/csv", dependencies=[Depends(auth)])
+    def trajectory_csv(traj_name: str) -> FileResponse:
+        from ..trajectories import check_name, default_directory
+
+        path = default_directory() / f"{check_name(traj_name)}.csv"
+        if not path.exists():
+            raise HTTPException(404, f"Aufnahme '{traj_name}' nicht gefunden.")
+        return FileResponse(path, media_type="text/csv", filename=path.name)
+
+    @app.delete("/api/trajectories/{traj_name}", dependencies=[Depends(auth)])
+    def trajectory_delete(traj_name: str, client_id: str | None = None) -> dict[str, str]:
+        from ..trajectories import delete_trajectory
+
+        server.require_client(client_id)
+        delete_trajectory(traj_name)
+        return {"status": "gelöscht"}
 
     # --- Einrichtungsassistent (Servo-IDs) -------------------------------------------
 
