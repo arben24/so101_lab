@@ -18,6 +18,9 @@ const app = {
   devices: [],
   ports: [],
   snapshots: {},
+  setup: null, // Einrichtungsassistent (vom Server, für alle Tabs sichtbar)
+  setupTypes: [],
+  mockPort: "mock",
 };
 
 // ------------------------------------------------------------------ Token
@@ -130,6 +133,7 @@ async function loadPorts() {
   if (keep && app.ports.some((p) => p.device === keep)) select.value = keep;
   else if (configured && app.ports.some((p) => p.device === configured)) select.value = configured;
   updatePortRow();
+  fillSetupPorts();
 }
 
 function updatePortRow() {
@@ -159,6 +163,7 @@ function openLive() {
     } else if (msg.type === "state") {
       const before = Object.keys(app.snapshots).sort().join();
       app.snapshots = msg.devices;
+      app.setup = msg.setup ?? null;
       if (Object.keys(app.snapshots).sort().join() !== before) loadDevices().catch(() => {});
       render();
     }
@@ -230,6 +235,7 @@ function render() {
   renderServo(snap, mine);
   renderRegisterControls(snap, mine);
   renderCalibration(snap, mine);
+  renderSetup();
 }
 
 function renderFacts(snap) {
@@ -370,6 +376,7 @@ async function main() {
   bindServo();
   bindRegisters();
   bindCalibration();
+  bindSetup();
   const info = await (await fetch("/api/info")).json();
   if (!info.docs) {
     $("docs-link").classList.add("disabled");
@@ -377,13 +384,14 @@ async function main() {
   }
   if (info.auth_required && !app.token) await askToken();
   await action(loadDevices);
+  await action(loadSetupTypes);
   await action(loadPorts);
   openLive();
 }
 
 // ------------------------------------------------------------------ Reiter
 
-const TABS = ["status", "servo", "register", "kalibrierung"];
+const TABS = ["status", "servo", "register", "kalibrierung", "einrichtung"];
 
 function showTab() {
   const tab = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "status";
@@ -677,6 +685,266 @@ function bindCalibration() {
   $("cal-middle").onclick = () => calibrationStep("middle");
   $("cal-finish").onclick = () => calibrationStep("finish");
   $("cal-cancel").onclick = () => calibrationStep("cancel");
+}
+
+// ------------------------------------------------------------------ Einrichtung (Servo-IDs)
+
+async function loadSetupTypes() {
+  const data = await api("GET", "/api/setup/types");
+  app.setupTypes = data.types;
+  app.mockPort = data.mock_port;
+  const select = $("setup-type");
+  const keep = select.value || localStorage.getItem("so101-setup-type");
+  select.innerHTML = "";
+  for (const t of app.setupTypes) select.add(new Option(`${t.type} – ${t.description}`, t.type));
+  if (keep && app.setupTypes.some((t) => t.type === keep)) select.value = keep;
+  render();
+}
+
+function fillSetupPorts() {
+  const select = $("setup-port");
+  const keep = select.value;
+  select.innerHTML = "";
+  for (const p of app.ports) select.add(new Option(p.label, p.device));
+  select.add(new Option("Simulation: ein neuer Servo (ohne Hardware)", app.mockPort));
+  if (keep && [...select.options].some((o) => o.value === keep)) select.value = keep;
+}
+
+function setupSingle(s) {
+  return s?.found?.length === 1 ? s.found[0] : null;
+}
+
+function setupStepIndex(s) {
+  if (!s) return -1;
+  if (s.found !== null) return setupSingle(s) ? 2 : 1;
+  if (s.last?.ok) return s.last.action === "neustart" ? 5 : 4;
+  return 1;
+}
+
+// Ziel der ID-Vergabe: ein Gelenk des Gerätetyps oder eine freie ID (0–253). null = ungültig.
+function setupTarget(s) {
+  if (!s) return null;
+  if ($("setup-mode").value === "free") {
+    const raw = $("setup-free-id").value.trim();
+    const id = Number(raw);
+    if (raw === "" || !Number.isInteger(id) || id < 0 || id > 253) return null;
+    const joint = s.order.find((j) => j.id === id);
+    return { id, joint: joint?.name ?? null, body: { id } };
+  }
+  const joint = s.order.find((j) => j.name === $("setup-joint").value);
+  return joint ? { id: joint.id, joint: joint.name, body: { joint: joint.name } } : null;
+}
+
+function setupPlan(s, target) {
+  const servo = setupSingle(s);
+  if (!servo || !target) return [];
+  const steps = [];
+  if (servo.id !== target.id) steps.push(`ID ${servo.id} → ${target.id}${target.joint ? ` (${target.joint})` : ""}`);
+  if (servo.baudrate !== 1000000) steps.push(`Baudrate ${servo.baudrate} → 1000000`);
+  return steps;
+}
+
+function setFacts(el, rows) {
+  el.innerHTML = "";
+  for (const [k, v] of rows) {
+    const dt = document.createElement("dt");
+    dt.textContent = k;
+    const dd = document.createElement("dd");
+    dd.textContent = v;
+    el.append(dt, dd);
+  }
+}
+
+function renderSetup() {
+  const s = app.setup;
+  const mine = Boolean(s && app.clientId && s.owner === app.clientId);
+  const busy = Boolean(s?.busy);
+  const can = mine && !busy;
+  $("setup-type").disabled = Boolean(s);
+  $("setup-port").disabled = Boolean(s);
+  $("setup-port-refresh").disabled = Boolean(s);
+  $("setup-start").disabled = Boolean(s) || !app.clientId;
+  $("setup-stop").disabled = !can;
+
+  const rows = [];
+  if (!s) {
+    rows.push(["Stand", "Nicht gestartet. Gerätetyp und Port wählen, dann „Assistent starten“."]);
+  } else {
+    rows.push(["Gerätetyp", `${s.device_type} (${s.description})`]);
+    rows.push(["Port", s.simulated ? "Simulation (keine Hardware)" : `${s.port}${s.adapter_sn ? ` [SN ${s.adapter_sn}]` : ""}`]);
+    rows.push(["Protokoll", s.log_path]);
+    rows.push(["Zustand", s.busy ? `${s.busy} …` : "bereit"]);
+    if (!mine) rows.push(["Hinweis", "Ein anderer Browser-Tab benutzt den Assistenten. Du beobachtest."]);
+  }
+  setFacts($("setup-facts"), rows);
+
+  // Reihenfolge: vom Server, vor dem Start aus dem gewählten Gerätetyp
+  const type = app.setupTypes.find((t) => t.type === $("setup-type").value);
+  const order = s ? s.order : (type?.joints ?? []).map((j) => ({ ...j, status: "–" }));
+  const body = $("setup-order").querySelector("tbody");
+  const key = JSON.stringify([order, s?.next]);
+  if (body.dataset.key !== key) {
+    body.dataset.key = key;
+    body.innerHTML = "";
+    for (const j of order) {
+      const tr = document.createElement("tr");
+      if (s && j.name === s.next) tr.className = "next";
+      for (const [text, cls] of [[j.name, ""], [j.id, ""], [j.status, j.status]]) {
+        const td = document.createElement("td");
+        td.textContent = text;
+        if (cls) td.className = cls;
+        tr.append(td);
+      }
+      body.append(tr);
+    }
+  }
+
+  // Gelenkauswahl: bei jedem neuen „nächsten“ Gelenk dieses vorschlagen
+  const jointSelect = $("setup-joint");
+  const names = (s?.order ?? []).map((j) => `${j.name}|${j.id}`).join();
+  if (jointSelect.dataset.names !== names) {
+    jointSelect.dataset.names = names;
+    jointSelect.innerHTML = "";
+    for (const j of s?.order ?? []) jointSelect.add(new Option(`${j.name} (ID ${j.id})`, j.name));
+  }
+  if (s && s.next && jointSelect.dataset.next !== s.next) {
+    jointSelect.dataset.next = s.next;
+    jointSelect.value = s.next;
+  }
+
+  $("setup-sim-row").style.display = s?.simulated ? "" : "none";
+  $("setup-sim-plug").disabled = !can;
+  $("setup-scan").disabled = !can;
+  $("setup-scan").textContent = s?.busy === "Suche läuft" ? "Suche läuft (ca. 8 s) …" : "Servo suchen";
+  jointSelect.disabled = !mine;
+
+  const found = $("setup-found");
+  const servo = setupSingle(s);
+  found.className = s?.found && !servo ? "bad" : "";
+  found.textContent = !s || s.found === null
+    ? ""
+    : s.found.length === 0
+      ? "Nichts gefunden. Servo-Netzteil an? Kabel gesteckt? Richtiger Port?"
+      : servo
+        ? `Gefunden: ID ${servo.id}, ${servo.model_name}, ${servo.baudrate} Baud, Firmware ${servo.firmware ?? "?"}.`
+        : `Es antworten ${s.found.length} Servos (IDs ${s.found.map((f) => f.id).join(", ")}). Nur EINEN anschließen und neu suchen!`;
+
+  const free = $("setup-mode").value === "free";
+  $("setup-joint-label").style.display = free ? "none" : "";
+  $("setup-free-label").style.display = free ? "" : "none";
+  $("setup-mode").disabled = !mine;
+  $("setup-free-id").disabled = !mine;
+  const target = setupTarget(s);
+  const plan = setupPlan(s, target);
+  // Wie der Server: den eben fertig eingerichteten Servo nicht auf ein anderes Ziel umstellen
+  const finished = servo && s.order.find((j) => j.id === servo.id && ["gesetzt", "dauerhaft"].includes(j.status));
+  const blocked = Boolean(finished && target && finished.id !== target.id);
+  $("setup-plan").className = blocked || (servo && !target) ? "bad" : "";
+  $("setup-plan").textContent = !servo
+    ? ""
+    : !target
+      ? "Bitte eine ID von 0 bis 253 eingeben."
+      : blocked
+        ? `Das ist der eben eingerichtete Servo ${finished.name} (ID ${servo.id}). Erst den nächsten Servo anschließen und neu suchen.`
+        : plan.length
+          ? `Geplant: ${plan.join(", ")}.`
+          : "Der Servo hat schon diese ID und 1 Mbit/s. „Nur prüfen“ liest zurück und sucht.";
+  $("setup-assign").disabled = !can || !servo || !target || blocked;
+  $("setup-assign").textContent = servo && !plan.length ? "Nur prüfen" : "ID schreiben";
+  $("setup-verify").disabled = !can || !s?.last;
+
+  const checks = $("setup-checks");
+  const last = s?.last;
+  const checksKey = JSON.stringify(last);
+  if (checks.dataset.key !== checksKey) {
+    checks.dataset.key = checksKey;
+    checks.innerHTML = "";
+    if (last) {
+      const head = document.createElement("li");
+      head.className = last.ok ? "ok" : "bad";
+      head.textContent = `${last.joint || `ID ${last.new_id}`}: ${last.message}`;
+      checks.append(head);
+      for (const c of last.checks) {
+        const li = document.createElement("li");
+        li.className = c.ok ? "ok" : "bad";
+        li.textContent = c.text;
+        checks.append(li);
+      }
+    }
+  }
+
+  const index = setupStepIndex(s);
+  ["setup-step-plug", "setup-step-scan", "setup-step-assign", "setup-step-result", "setup-step-restart", "setup-step-next"].forEach(
+    (id, i) => ($(id).className = i === index ? "current" : i < index ? "done" : ""),
+  );
+
+  const list = $("setup-events");
+  const events = s?.events ?? [];
+  const eventsKey = events.map((e) => e.id).join();
+  if (list.dataset.key !== eventsKey) {
+    list.dataset.key = eventsKey;
+    list.innerHTML = "";
+    for (const e of [...events].reverse()) {
+      const li = document.createElement("li");
+      li.className = e.level;
+      const time = document.createElement("time");
+      time.textContent = new Date(e.time * 1000).toLocaleTimeString("de-DE");
+      li.append(time, e.text);
+      list.append(li);
+    }
+  }
+}
+
+async function setupCall(path, body = {}) {
+  app.setup = await api("POST", `/api/setup/${path}`, { client_id: app.clientId, ...body });
+  render();
+  return app.setup;
+}
+
+function bindSetup() {
+  $("setup-type").onchange = () => {
+    localStorage.setItem("so101-setup-type", $("setup-type").value);
+    render();
+  };
+  $("setup-port-refresh").onclick = () => action(loadPorts);
+  $("setup-start").onclick = () =>
+    action(async () => {
+      const port = $("setup-port").value;
+      if (!port) throw new Error("Bitte einen Port wählen.");
+      await setupCall("start", { port, device_type: $("setup-type").value });
+    });
+  $("setup-stop").onclick = () =>
+    action(async () => {
+      await api("POST", "/api/setup/stop", { client_id: app.clientId });
+      app.setup = null;
+      render();
+    });
+  $("setup-sim-plug").onclick = () => action(() => setupCall("simulate", { variant: $("setup-sim-variant").value }));
+  $("setup-scan").onclick = () => action(() => setupCall("scan"));
+  $("setup-joint").onchange = () => render();
+  $("setup-mode").onchange = () => render();
+  $("setup-free-id").oninput = () => render();
+  $("setup-assign").onclick = () =>
+    action(async () => {
+      const target = setupTarget(app.setup);
+      if (!target) throw new Error("Bitte eine ID von 0 bis 253 eingeben.");
+      const plan = setupPlan(app.setup, target);
+      if (plan.length) {
+        const ok = await ask(
+          `${plan.join("\n")}\n\nDas wird dauerhaft in den Servo geschrieben (EEPROM). ` +
+            "Am Bus darf nur dieser eine Servo hängen. Wirklich schreiben?",
+          "Schreiben",
+        );
+        if (!ok) return;
+      }
+      const result = await setupCall("assign", target.body);
+      toast(result.last.message, result.last.ok ? "info" : "error");
+    });
+  $("setup-verify").onclick = () =>
+    action(async () => {
+      const result = await setupCall("verify", { id: app.setup.last.new_id });
+      toast(result.last.message, result.last.ok ? "info" : "error");
+    });
 }
 
 main();

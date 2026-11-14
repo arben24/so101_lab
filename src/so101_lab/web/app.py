@@ -35,6 +35,7 @@ from ..backends.base import BackendError
 from ..config import ConfigError, load_config
 from ..safety import connect_arm
 from .session import ControlError, DeviceSession
+from .setup_session import MOCK_PORT, SIMULATED_PLUGS, SetupSession
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,7 @@ class LabServer:
         self.poll_hz = poll_hz
         self.sessions: dict[str, DeviceSession] = {}
         self.clients: set[str] = set()  # client_ids mit offenem WebSocket
+        self.setup: SetupSession | None = None  # Einrichtungsassistent (höchstens einer)
         self._lock = threading.Lock()
 
     def config(self):
@@ -82,6 +84,10 @@ class LabServer:
                 busy = [s.name for s in self.sessions.values() if port and s.port == port]
                 if busy:
                     raise HTTPException(409, f"Port {port} wird schon von '{busy[0]}' benutzt.")
+                if port and self.setup is not None and self.setup.port == port:
+                    raise HTTPException(
+                        409, f"Port {port} gehört gerade dem Einrichtungsassistenten. Erst dort beenden."
+                    )
             arm = connect_arm(name, port=port, config_path=self.config_path)
             session = DeviceSession(
                 name,
@@ -119,6 +125,39 @@ class LabServer:
         self.clients.discard(client_id)
         for session in list(self.sessions.values()):
             session.release_control(client_id, "Live-Verbindung getrennt")
+        setup = self.setup
+        if setup is not None and setup.owner == client_id:
+            self.stop_setup(client_id)
+
+    # ------------------------------------------------------------ Einrichtungsassistent
+
+    def start_setup(self, client_id: str, port: str, device_type: str) -> SetupSession:
+        with self._lock:
+            if self.setup is not None:
+                where = "Simulation" if self.setup.simulated else self.setup.port
+                raise ControlError(f"Der Einrichtungsassistent läuft schon ({where}). Erst dort beenden.")
+            busy = [s.name for s in self.sessions.values() if s.port == port]
+            if busy:
+                raise ControlError(
+                    f"Port {port} ist mit dem Gerät '{busy[0]}' verbunden. Erst trennen: "
+                    "Für die ID-Vergabe hängt nur ein einzelner Servo am Bus."
+                )
+            self.setup = SetupSession.open(client_id, port, device_type)
+            return self.setup
+
+    def require_setup(self, client_id: str | None) -> SetupSession:
+        setup = self.setup
+        if setup is None:
+            raise ControlError("Der Einrichtungsassistent läuft nicht. Erst starten.")
+        setup.require_owner(client_id)
+        return setup
+
+    def stop_setup(self, client_id: str | None) -> None:
+        setup = self.require_setup(client_id)
+        with self._lock:
+            if self.setup is setup:
+                self.setup = None
+        setup.close()
 
     def require_client(self, client_id: str | None) -> str:
         if not client_id or client_id not in self.clients:
@@ -129,6 +168,9 @@ class LabServer:
         for name in list(self.sessions):
             session = self.sessions.pop(name)
             session.stop()
+        setup, self.setup = self.setup, None
+        if setup is not None:
+            setup.close()
 
     def check_token(self, presented: str | None) -> bool:
         if self.token is None:
@@ -177,6 +219,20 @@ class RegisterWriteRequest(ClientRequest):
     register_name: str
     value: int
     confirm_eeprom: bool = False
+
+
+class SetupStartRequest(ClientRequest):
+    port: str  # serieller Port oder "mock" (Simulation)
+    device_type: str  # so101_follower | so101_leader | lekiwi
+
+
+class SetupTargetRequest(ClientRequest):
+    joint: str | None = None  # Gelenk des Gerätetyps …
+    id: int | None = None  # … oder eine freie ID (0–253)
+
+
+class SetupSimulateRequest(ClientRequest):
+    variant: str  # siehe SIMULATED_PLUGS
 
 
 # ------------------------------------------------------------------ App
@@ -319,6 +375,54 @@ def create_app(server: LabServer, docs_dir: Path | None = None) -> FastAPI:
             raise HTTPException(404, f"Unbekannter Kalibrierschritt '{step}'.")
         return steps[step](server.require_client(body.client_id))
 
+    # --- Einrichtungsassistent (Servo-IDs) -------------------------------------------
+
+    @app.get("/api/setup/types", dependencies=[Depends(auth)])
+    def setup_types() -> dict[str, Any]:
+        from ..devices.spec import DEVICE_TYPES, get_device_spec
+        from ..servo_setup import setup_order
+
+        types = []
+        for device_type in DEVICE_TYPES:
+            spec = get_device_spec(device_type)
+            joints = [{"name": j.name, "id": j.motor_id} for j in setup_order(spec)]
+            types.append({"type": device_type, "description": spec.description, "joints": joints})
+        return {"types": types, "mock_port": MOCK_PORT, "simulations": list(SIMULATED_PLUGS)}
+
+    @app.get("/api/setup", dependencies=[Depends(auth)])
+    def setup_state() -> dict[str, Any] | None:
+        return server.setup.snapshot() if server.setup else None
+
+    @app.post("/api/setup/start", dependencies=[Depends(auth)])
+    def setup_start(body: SetupStartRequest) -> dict[str, Any]:
+        client = server.require_client(body.client_id)
+        return server.start_setup(client, body.port, body.device_type).snapshot()
+
+    @app.post("/api/setup/scan", dependencies=[Depends(auth)])
+    def setup_scan(body: ClientRequest) -> dict[str, Any]:
+        client = server.require_client(body.client_id)
+        return server.require_setup(client).scan(client)
+
+    @app.post("/api/setup/assign", dependencies=[Depends(auth)])
+    def setup_assign(body: SetupTargetRequest) -> dict[str, Any]:
+        client = server.require_client(body.client_id)
+        return server.require_setup(client).assign(client, body.joint, body.id)
+
+    @app.post("/api/setup/verify", dependencies=[Depends(auth)])
+    def setup_verify(body: SetupTargetRequest) -> dict[str, Any]:
+        client = server.require_client(body.client_id)
+        return server.require_setup(client).verify(client, body.joint, body.id)
+
+    @app.post("/api/setup/simulate", dependencies=[Depends(auth)])
+    def setup_simulate(body: SetupSimulateRequest) -> dict[str, Any]:
+        client = server.require_client(body.client_id)
+        return server.require_setup(client).simulate_plug(client, body.variant)
+
+    @app.post("/api/setup/stop", dependencies=[Depends(auth)])
+    def setup_stop(body: ClientRequest) -> dict[str, str]:
+        server.stop_setup(body.client_id)
+        return {"status": "beendet"}
+
     @app.post("/api/estop", dependencies=[Depends(auth)])
     def estop() -> dict[str, Any]:
         return {"stopped": server.emergency_stop()}
@@ -337,8 +441,13 @@ def create_app(server: LabServer, docs_dir: Path | None = None) -> FastAPI:
 
         async def send_state() -> None:
             while True:
+                setup = server.setup
                 await ws.send_json(
-                    {"type": "state", "devices": {n: s.snapshot() for n, s in list(server.sessions.items())}}
+                    {
+                        "type": "state",
+                        "devices": {n: s.snapshot() for n, s in list(server.sessions.items())},
+                        "setup": setup.snapshot() if setup else None,
+                    }
                 )
                 await asyncio.sleep(STATE_INTERVAL_S)
 

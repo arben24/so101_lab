@@ -412,3 +412,139 @@ def test_frontend_uses_no_blocking_dialogs():
     )
     assert not re.search(r"(?<![\w.])(confirm|alert|prompt)\s*\(", code)
     assert not re.search(r"window\.(confirm|alert|prompt)\s*\(", code)
+
+
+# ------------------------------------------------------------------ Einrichtungsassistent (Servo-IDs)
+
+
+def start_setup(client, me, device_type="so101_follower"):
+    r = client.post("/api/setup/start", json={"client_id": me, "port": "mock", "device_type": device_type})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_setup_types():
+    from so101_lab.web.app import LabServer
+
+    client = TestClient(create_app(LabServer()))
+    data = client.get("/api/setup/types").json()
+    types = {t["type"]: t for t in data["types"]}
+    assert [j["id"] for j in types["so101_follower"]["joints"]] == [6, 5, 4, 3, 2, 1]
+    assert [j["id"] for j in types["lekiwi"]["joints"]][-3:] == [9, 8, 7]
+    assert data["mock_port"] == "mock" and "doppelt" in data["simulations"]
+
+
+def test_setup_flow_in_simulation(config_path, tmp_path):
+    client, server = make_client(config_path)
+    with client, client.websocket_connect("/ws") as ws:
+        me = ws.receive_json()["client_id"]
+        snap = start_setup(client, me)
+        assert snap["simulated"] and snap["next"] == "gripper" and snap["found"] is None
+        states = (ws.receive_json() for _ in range(20))  # Zustand geht an alle Tabs
+        assert any(m["setup"] and m["setup"]["owner"] == me for m in states)
+
+        snap = client.post("/api/setup/scan", json={"client_id": me}).json()
+        assert [s["id"] for s in snap["found"]] == [1]
+        snap = client.post("/api/setup/assign", json={"client_id": me, "joint": "gripper"}).json()
+        assert snap["last"]["ok"], snap["last"]
+        assert snap["order"][0] == {"name": "gripper", "id": 6, "status": "gesetzt"}
+        assert snap["next"] == "wrist_roll"
+
+        # Neustart-Probe: In der Simulation wird aus- und eingeschaltet
+        snap = client.post("/api/setup/verify", json={"client_id": me, "joint": "gripper"}).json()
+        assert snap["last"]["ok"] and snap["order"][0]["status"] == "dauerhaft"
+
+        # Nächster Servo, diesmal mit falscher Baudrate
+        client.post("/api/setup/simulate", json={"client_id": me, "variant": "baudrate"})
+        snap = client.post("/api/setup/scan", json={"client_id": me}).json()
+        assert snap["found"][0]["baudrate"] == 115_200
+        snap = client.post("/api/setup/assign", json={"client_id": me, "joint": "wrist_roll"}).json()
+        assert snap["last"]["ok"]
+        servo = server.setup.backend.servos[0]
+        assert servo.id == 5 and servo.baudrate == 1_000_000
+
+        log = (tmp_path / "logs" / "servo_ids.csv").read_text(encoding="utf-8").splitlines()
+        assert log[0].startswith("zeit,aktion,ergebnis") and len(log) == 4
+        assert client.post("/api/setup/stop", json={"client_id": me}).status_code == 200
+        assert server.setup is None
+
+
+def test_setup_refuses_two_servos_with_same_id(config_path):
+    client, server = make_client(config_path)
+    with client, client.websocket_connect("/ws") as ws:
+        me = ws.receive_json()["client_id"]
+        start_setup(client, me)
+        client.post("/api/setup/simulate", json={"client_id": me, "variant": "doppelt"})
+        client.post("/api/setup/scan", json={"client_id": me})
+        r = client.post("/api/setup/assign", json={"client_id": me, "joint": "gripper"})
+        assert r.status_code == 400 and "unzuverlässig" in r.json()["detail"]
+        assert [s.id for s in server.setup.backend.servos] == [1, 1]
+
+
+def test_setup_belongs_to_one_tab_and_ends_with_it(config_path):
+    client, server = make_client(config_path)
+    with client:
+        with client.websocket_connect("/ws") as ws1, client.websocket_connect("/ws") as ws2:
+            me, other = ws1.receive_json()["client_id"], ws2.receive_json()["client_id"]
+            start_setup(client, me)
+            r = client.post("/api/setup/scan", json={"client_id": other})
+            assert r.status_code == 409 and "anderen Browser-Tab" in r.json()["detail"]
+            r = client.post(
+                "/api/setup/start", json={"client_id": other, "port": "mock", "device_type": "lekiwi"}
+            )
+            assert r.status_code == 409 and "läuft schon" in r.json()["detail"]
+            assert (
+                client.post(
+                    "/api/setup/simulate", json={"client_id": me, "variant": "gibtsnicht"}
+                ).status_code
+                == 400
+            )
+        # Beide Tabs zu: Assistent beendet, Port frei
+        assert wait_for(lambda: server.setup is None)
+
+
+def test_setup_and_device_do_not_share_a_port(config_path, monkeypatch):
+    from so101_lab.backends.mock import MockBackend
+
+    client, server = make_client(config_path)
+
+    class FakeUsb(MockBackend):
+        def __init__(self, port):
+            super().__init__()
+            self.plug_new_servo()
+
+    monkeypatch.setattr("so101_lab.backends.usb.UsbBackend", FakeUsb)
+    with client, client.websocket_connect("/ws") as ws:
+        me = ws.receive_json()["client_id"]
+        r = client.post(
+            "/api/setup/start",
+            json={"client_id": me, "port": "/dev/ttyFAKE0", "device_type": "so101_follower"},
+        )
+        assert r.status_code == 200, r.text
+        assert server.setup.port == "/dev/ttyFAKE0" and not server.setup.simulated
+        r = client.post("/api/devices/usbarm/connect", json={"port": "/dev/ttyFAKE0"})
+        assert r.status_code == 409 and "Einrichtungsassistenten" in r.json()["detail"]
+        client.post("/api/setup/stop", json={"client_id": me})
+
+
+def test_setup_unknown_type(config_path):
+    client, _ = make_client(config_path)
+    with client, client.websocket_connect("/ws") as ws:
+        me = ws.receive_json()["client_id"]
+        r = client.post("/api/setup/start", json={"client_id": me, "port": "mock", "device_type": "roboter"})
+        assert r.status_code == 400 and "Unbekannter Gerätetyp" in r.json()["detail"]
+
+
+def test_setup_free_id(config_path):
+    client, server = make_client(config_path)
+    with client, client.websocket_connect("/ws") as ws:
+        me = ws.receive_json()["client_id"]
+        start_setup(client, me)
+        client.post("/api/setup/scan", json={"client_id": me})
+        snap = client.post("/api/setup/assign", json={"client_id": me, "id": 99}).json()
+        assert snap["last"]["ok"] and snap["last"]["new_id"] == 99
+        assert server.setup.backend.servos[0].id == 99
+        snap = client.post("/api/setup/verify", json={"client_id": me, "id": 99}).json()
+        assert snap["last"]["ok"]
+        r = client.post("/api/setup/assign", json={"client_id": me, "id": 300})
+        assert r.status_code == 400 and "0 bis 253" in r.json()["detail"]

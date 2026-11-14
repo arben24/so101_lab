@@ -58,6 +58,7 @@
       <a href="#servo">Einzelservo</a>
       <a href="#register">Register</a>
       <a href="#kalibrierung">Kalibrierung</a>
+      <a href="#einrichtung">Einrichtung</a>
     </nav>
 
     <!-- ============================================================ Status -->
@@ -166,6 +167,90 @@
           <tbody></tbody>
         </table>
       </div>
+    </section>
+
+    <!-- ============================================================ Einrichtung -->
+    <section class="card tab" id="tab-einrichtung">
+      <h2>Servo-IDs vergeben</h2>
+      <p class="hint">
+        Für neue Servos, bevor der Arm zusammengebaut wird. Unabhängig vom Gerät oben: Der Assistent öffnet
+        den Port selbst, ein dort verbundenes Gerät muss vorher getrennt sein. ID und Baudrate werden dauerhaft
+        ins EEPROM geschrieben und danach geprüft. Jede Aktion landet im Protokoll.
+      </p>
+      <div class="row">
+        <label>Gerätetyp <select id="setup-type"></select></label>
+        <label>Port <select id="setup-port"></select></label>
+        <button id="setup-port-refresh" class="secondary" title="Portliste neu laden">↻</button>
+        <button id="setup-start">Assistent starten</button>
+        <button id="setup-stop" class="secondary">Beenden</button>
+      </div>
+      <dl class="facts" id="setup-facts"></dl>
+
+      <div class="setup-grid">
+        <div>
+          <h2 class="sub">Reihenfolge</h2>
+          <table id="setup-order">
+            <thead><tr><th>Gelenk</th><th>ID</th><th>Stand</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <ol class="steps" id="setup-steps">
+          <li id="setup-step-plug">
+            <b>Genau einen Servo anschließen.</b> Netzteil aus, <b>einen</b> Servo mit dem Adapter verbinden
+            (noch nicht im Arm verbaut), Netzteil an. Neue Servos haben alle die ID 1: Hängen zwei am Bus,
+            antworten beide gleichzeitig.
+            <div class="row" id="setup-sim-row">
+              <label>Simulation
+                <select id="setup-sim-variant">
+                  <option value="neu">neuer Servo ab Werk (ID 1, 1 Mbit/s)</option>
+                  <option value="baudrate">Servo mit 115 200 Baud</option>
+                  <option value="doppelt">Fehlerfall: zwei Servos mit ID 1</option>
+                </select>
+              </label>
+              <button id="setup-sim-plug" class="secondary">Anstecken (simuliert)</button>
+            </div>
+          </li>
+          <li id="setup-step-scan">
+            <b>Suchen.</b> Alle Baudraten werden durchsucht, das dauert etwa 8 s. Es muss genau ein Servo antworten.
+            <div class="row"><button id="setup-scan">Servo suchen</button></div>
+            <p id="setup-found"></p>
+          </li>
+          <li id="setup-step-assign">
+            <b>ID schreiben.</b> Ziel wählen: ein <b>Gelenk</b> (vorgeschlagen ist das nächste offene) oder eine
+            <b>freie ID</b> für einen einzelnen Servo, etwa einen Ersatzservo oder einen eigenen Aufbau.
+            Vor dem Schreiben wird der Servo mehrmals gelesen: Wackeln die Antworten, hängen vermutlich zwei Servos
+            mit gleicher ID am Bus.
+            <div class="row">
+              <label>Ziel
+                <select id="setup-mode">
+                  <option value="joint">Gelenk</option>
+                  <option value="free">freie ID</option>
+                </select>
+              </label>
+              <label id="setup-joint-label">Gelenk <select id="setup-joint"></select></label>
+              <label id="setup-free-label">ID (0–253) <input id="setup-free-id" type="number" min="0" max="253" step="1" value="1"></label>
+              <button id="setup-assign" class="warn">ID schreiben</button>
+            </div>
+            <p id="setup-plan"></p>
+          </li>
+          <li id="setup-step-result">
+            <b>Prüfen.</b> Antwortet der Servo unter der neuen ID bei 1 Mbit/s, ist die alte ID frei, stehen die
+            Register richtig?
+            <ul class="checks" id="setup-checks"></ul>
+          </li>
+          <li id="setup-step-restart">
+            <b>Neustart-Probe (empfohlen).</b> Netzteil aus und wieder an (oder Servo ab- und wieder anstecken).
+            Erst das zeigt, dass ID und Baudrate wirklich dauerhaft im EEPROM stehen.
+            <div class="row"><button id="setup-verify" class="secondary">Nach Neustart prüfen</button></div>
+          </li>
+          <li id="setup-step-next">
+            <b>Beschriften, abziehen, nächster Servo.</b> Einen Aufkleber mit ID und Gelenk auf den Servo kleben.
+            Dann wieder bei Schritt 1 beginnen.
+          </li>
+        </ol>
+      </div>
+      <h2 class="sub">Meldungen</h2>
+      <ul id="setup-events"></ul>
     </section>
   </main>
 
