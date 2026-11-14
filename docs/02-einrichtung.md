@@ -95,49 +95,79 @@ Hardware: Alle Skripte laufen damit (`--device demo`).
 ## 4. Servo-IDs vergeben
 
 Jeder Servo bekommt die ID seines Gelenks (Tabelle in Kapitel [Aufbau](01-aufbau.md)). Das ist ein
-**einmaliger Schritt je Servo**; die ID bleibt dauerhaft im Servo gespeichert (EEPROM).
+**einmaliger Schritt je Servo**; ID und Baudrate bleiben dauerhaft im Servo gespeichert (EEPROM).
 
 !!! danger "Immer nur ein Servo am Bus"
     Alle neuen Servos haben die ID 1. Hängen zwei am Bus, antworten beide gleichzeitig und die
-    Antworten überlagern sich. `05_set_servo_id.py` bricht deshalb ab, wenn es nicht **genau einen**
-    Servo findet.
+    Antworten überlagern sich. Schlimmer: Ein Schreibbefehl an „ID 1“ ändert **beide**. Assistent und
+    Skript brechen deshalb ab, wenn sie nicht **genau einen** Servo finden. Vor dem Schreiben lesen sie
+    den Servo zehnmal: Kommen dabei kaputte Antworten, hängen vermutlich zwei Servos mit derselben ID
+    am Bus. Ganz sicher ist das nicht. Sicher ist nur: alle anderen Servos abziehen.
 
-Ablauf je Servo:
+Reihenfolge wie bei LeRobot: erst Greifer (6), dann zurück bis zur Schulter (1), bei LeKiwi danach die
+Räder 9, 8, 7. Erst wenn alle Servos ihre ID haben, wird der Arm zusammengebaut.
 
-1. Netzteil aus. Genau **einen** Servo mit dem Adapter verbinden, **noch nicht** im Arm verbaut.
-2. Netzteil an.
-3. ID setzen, zum Beispiel für den Greifer:
+### In der Web-App (empfohlen)
 
-   ```bash
-   uv run scripts/05_set_servo_id.py --gelenk gripper
-   ```
+<a class="lab-link" href="../index.html#einrichtung">In der Web-App ausprobieren</a>
 
-   Das Skript sucht den Servo, zeigt ihn an, nennt die geplante Änderung (`ID 1 → 6 (gripper)`) und fragt
-   nach. Erst nach `j` wird geschrieben und anschließend **geprüft**: Antwortet der Servo unter der
-   neuen ID, und ist die alte ID frei?
-4. Netzteil aus, Servo abziehen, **beschriften** („6 gripper“), nächster Servo.
+1. `uv run so101-lab web`, Reiter **Einrichtung**. Gerätetyp und Port wählen, **Assistent starten**.
+   Der Assistent öffnet den Port selbst; ist dort oben ein Gerät verbunden, erst **Trennen**.
+   Ohne Hardware: Port **Simulation** wählen. Dort lassen sich neue Servos, ein Servo mit falscher
+   Baudrate und der Fehlerfall „zwei Servos mit ID 1“ simuliert anstecken.
+2. Netzteil aus, genau **einen** Servo anschließen (noch nicht im Arm verbaut), Netzteil an.
+3. **Servo suchen.** Durchsucht alle Baudraten und IDs, das dauert etwa 8 s.
+4. Gelenk prüfen (vorgeschlagen ist das nächste offene), **ID schreiben**, Rückfrage bestätigen.
+   Läuft der Servo nicht mit 1 Mbit/s, wird auch die Baudrate umgestellt.
+5. Die Prüfungen erscheinen als Liste: Antwortet der Servo unter der neuen ID, ist die alte frei,
+   stehen `id` und `baud_rate` richtig im Servo, findet eine Suche bei 1 Mbit/s nur ihn?
+6. **Neustart-Probe** (empfohlen): Netzteil aus und wieder an, dann **Nach Neustart prüfen**. Erst
+   das zeigt, dass die Werte wirklich im EEPROM stehen und nicht nur bis zum Ausschalten gelten.
+7. Netzteil aus, Servo abziehen, **beschriften** („6 gripper“), nächster Servo.
 
-Reihenfolge wie bei LeRobot: erst Greifer (6), dann zurück bis zur Schulter (1). Erst wenn alle Servos
-ihre ID haben, wird der Arm zusammengebaut.
+**Freie ID für einen einzelnen Servo:** In Schritt 4 unter **Ziel** „freie ID“ wählen und eine Zahl von
+0 bis 253 eingeben, zum Beispiel für einen Ersatzservo oder einen eigenen Aufbau. Alles andere bleibt gleich:
+genau ein Servo am Bus, Probe, Prüfung, Neustart-Probe, Protokoll. Gehört die ID zu einem Gelenk des
+gewählten Gerätetyps, wird sie in der Reihenfolge-Tabelle mit abgehakt.
 
-Prüfen, wenn alle Servos am Bus hängen:
+Der Assistent gehört dem Browser-Tab, der ihn gestartet hat. Wird der Tab geschlossen, endet er und gibt
+den Port frei. Den gerade eingerichteten Servo stellt er nicht aus Versehen auf das nächste Gelenk um:
+Wer vergisst zu tauschen, bekommt einen Hinweis statt einer neuen ID.
+
+### Mit dem Skript
+
+```bash
+uv run scripts/05_set_servo_id.py --gelenk gripper   # ID des Gelenks (hier 6)
+uv run scripts/05_set_servo_id.py --id 12            # freie ID 0–253
+```
+
+Das Skript macht dasselbe wie der Assistent (gleicher Code in `so101_lab/servo_setup.py`): suchen,
+den Plan zeigen (`ID 1 → 6 (gripper)`), nach `j` schreiben und prüfen. Die Neustart-Probe macht man
+hier von Hand: Netzteil aus und an, dann `uv run so101-lab scan --port /dev/ttyACM0`.
+
+### Protokoll
+
+Jede Aktion (ID gesetzt, nur geprüft, Neustart-Probe), auch eine fehlgeschlagene, landet als Zeile in
+`logs/servo_ids.csv`: Zeit, Gerätetyp, Gelenk, alte und neue ID und Baudrate, Modell, Firmware, Port,
+Seriennummer des Adapters, Ergebnis. Die Datei liegt im Repo und kann mit eingecheckt werden.
+
+### Prüfen, wenn alle Servos am Bus hängen
 
 ```bash
 uv run so101-lab scan --port /dev/ttyACM0
 ```
 
-Erwartet sind sechs Zeilen für die IDs 1 bis 6, jeweils `STS3215`, Modellnummer `777`, Baudrate
-`1000000` und eine Firmware-Version. Findet der Scan nichts, hilft `--all-baudrates` (dauert etwa 8 s).
-
-Das Skript ändert **nur die ID**, nicht die Baudrate. Neue Servos laufen ab Werk mit 1 Mbit/s, so wie es
-der Bus braucht.
+Erwartet sind sechs Zeilen für die IDs 1 bis 6 (bei LeKiwi neun), jeweils `STS3215`, Modellnummer `777`,
+Baudrate `1000000` und eine Firmware-Version. Findet der Scan nichts, hilft `--all-baudrates` (dauert
+etwa 8 s).
 
 ??? info "Dasselbe „in fertig“: lerobot-setup-motors"
     ```bash
     uv run lerobot-setup-motors --robot.type=so101_follower --robot.port=/dev/ttyACM0
     uv run lerobot-setup-motors --teleop.type=so101_leader  --teleop.port=/dev/ttyACM0
     ```
-    Das Werkzeug führt durch alle Motoren nacheinander und setzt zusätzlich die Baudrate.
+    Das Werkzeug führt durch alle Motoren nacheinander und setzt ID und Baudrate genauso: erst die ID
+    bei der alten Baudrate, dann 1 Mbit/s. Eine Neustart-Probe und ein Protokoll gibt es dort nicht.
 
 ## 5. Kalibrierung
 

@@ -159,7 +159,7 @@ ausschließlich durch eigene, klar benannte Funktionen, die danach **zurücklese
 
 Im **Register-Explorer** der Web-App lassen sich EEPROM-Register nur im Expertenmodus und nach einer
 Rückfrage schreiben, danach wird zurückgelesen. Gesperrt bleiben dort ID und Baudrate (eigener Ablauf mit
-genau einem Servo am Bus) sowie Homing-Offset und Positionsgrenzen (gehören zur Kalibrierung, sonst passen
+genau einem Servo am Bus: Reiter **Einrichtung**, siehe [Einrichtung](02-einrichtung.md)) sowie Homing-Offset und Positionsgrenzen (gehören zur Kalibrierung, sonst passen
 Servo und Kalibrierdatei nicht mehr zusammen).
 
 ### Die Schreibsperre (`lock`)

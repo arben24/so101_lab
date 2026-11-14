@@ -8,6 +8,7 @@ uv sync                    # Python 3.12 und alle Pakete (CPU-torch)
 uv run so101-lab doctor    # Umgebung, Ports, Kameras prüfen
 uv run so101-lab ports     # USB-Seriell-Ports anzeigen
 uv run so101-lab scan      # Servos am Bus suchen
+uv run so101-lab web       # Web-App starten, dann http://localhost:8000 im Browser öffnen
 uv run mkdocs serve        # Doku lokal
 uv run pytest              # Tests (ohne Hardware)
 uv run ruff check . && uv run ruff format --check .

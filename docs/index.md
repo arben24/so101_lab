@@ -74,8 +74,9 @@ Reiter der Web-App:
 | Einzelservo | ein Gelenk: Live-Werte, Tempo- und Beschleunigungsgrenze, Schieberegler, Drehmoment |
 | Register | alle Register eines Servos lesen, freigegebene schreiben (EEPROM nur mit Bestätigung) |
 | Kalibrierung | geführte Kalibrierung mit Anzeige, wo die Datei gespeichert wird |
+| Einrichtung | Assistent für neue Servos: ID und Baudrate vergeben, prüfen, protokollieren (genau ein Servo am Bus) |
 
-Servo-Einrichtung (IDs) und Recorder kommen in den nächsten Ausbaustufen dazu.
+Recorder und Kamera kommen in den nächsten Ausbaustufen dazu.
 
 <a class="lab-link" href="../index.html#status">Web-App öffnen</a>
 
@@ -90,7 +91,7 @@ LeRobot-Werkzeug dasselbe „in fertig“ macht.
 | `02_read_servo.py` | alle Register eines Servos lesen, Live-Positionen | nein |
 | `03_move_servo.py` | ein Gelenk kontrolliert bewegen | Torque und Ziel (RAM), danach aus |
 | `04_write_param.py` | ein RAM-Register schreiben (Whitelist) | RAM, bis zum Ausschalten |
-| `05_set_servo_id.py` | neuem Servo die ID geben | **EEPROM, dauerhaft** |
+| `05_set_servo_id.py` | neuem Servo ID und 1 Mbit/s geben, prüfen, protokollieren | **EEPROM, dauerhaft** |
 | `06_record_trajectory.py` | Bewegung von Hand führen und aufzeichnen | Torque aus |
 | `07_replay_trajectory.py` | Aufnahme sanft anfahren und abspielen | Torque und Ziele (RAM), danach aus |
 
