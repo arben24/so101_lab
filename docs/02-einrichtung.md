@@ -206,6 +206,26 @@ Die Web-App schreibt dabei **nur** Homing-Offset und Positionsgrenzen, sonst nic
 dasselbe wie bei `lerobot-calibrate` (gleiche Rechnung, gleiches Dateiformat). Für die LeKiwi werden nur
 die Arm-Gelenke von Hand abgefahren, die Räder bekommen wie bei LeRobot Offset 0 und den vollen Bereich.
 
+### Kalibrierdateien verwalten
+
+<a class="lab-link" href="../index.html#kalibrierdateien">In der Web-App ausprobieren</a>
+
+Der Reiter **Kalibrierdateien** listet alle Dateien im Repo und in LeRobots Ablage, mit dem Gerät aus
+`arms.toml`, das sie benutzt, und einer Prüfung des Inhalts (alle Gelenke, passende IDs, Bereiche 0…4095).
+
+- **Ansehen** zeigt Offset und Bereich je Gelenk, **JSON** lädt die Datei herunter.
+- **Löschen** macht aus der Datei ein Backup (`<id>.json.bak`). **Wiederherstellen** holt es zurück bzw.
+  tauscht Datei und Backup. Backups stehen in `.gitignore`, sie sind ein lokales Sicherheitsnetz.
+- **Importieren** übernimmt eine Datei im LeRobot-Format ins Repo (geprüft, Ersetzen nur mit Haken).
+  Dateien aus LeRobots Ablage lassen sich mit **Ins Repo kopieren** übernehmen.
+- **Vergleichen** liest Homing-Offset und Positionsgrenzen aus den Servos des verbundenen Geräts und
+  vergleicht sie mit der Datei. Nur wenn beides übereinstimmt, passen Rohwerte, Grenzen und Datei zusammen.
+- **Datei in die Servos schreiben** bringt die Servos auf den Stand der Datei (nur geänderte Werte, mit
+  Prüfung). Nötig nach Wiederherstellen oder Importieren einer anderen Datei, oder wenn ein Servo
+  getauscht wurde. Das macht `lerobot-calibrate` ebenso, wenn man eine vorhandene Datei übernimmt.
+
+Verbundene Geräte laden ihre Datei nach jeder Änderung neu.
+
 ### Ablage und Format
 
 Das Ergebnis liegt als JSON-Datei in `calibration/robots/so_follower/follower_1.json` (bzw. unter

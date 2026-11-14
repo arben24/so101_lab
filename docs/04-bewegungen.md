@@ -4,7 +4,8 @@ Eine aufgezeichnete Bewegung (*Trajektorie*) ist nichts Geheimnisvolles: **eine 
 Zeitstempeln und einer Position je Gelenk.** Aufzeichnen heißt, Positionen in gleichem Abstand zu
 lesen und zu speichern. Abspielen heißt, sie zur richtigen Zeit wieder als Ziele zu schreiben.
 
-Praxis dazu: `scripts/06_record_trajectory.py` und `scripts/07_replay_trajectory.py`.
+Praxis dazu: `scripts/06_record_trajectory.py` und `scripts/07_replay_trajectory.py`. Dasselbe mit
+Oberfläche, Bibliothek und Teleoperation: Web-App, Reiter **Aufnahmen** (Kapitel [Datensätze](05-datensaetze.md)).
 
 ## Aufzeichnen
 
@@ -69,7 +70,14 @@ t_s,shoulder_pan,shoulder_lift,elbow_flex,wrist_flex,wrist_roll,gripper
   "device_type": "so101_follower",
   "calibration_id": "follower_1",
   "calibration_file": "calibration/robots/so_follower/follower_1.json",
-  "target_rate_hz": 10.0
+  "homing_offsets": {"shoulder_pan": -312, "…": "je Gelenk der Offset im Servo beim Aufnehmen"},
+  "calibration": {
+    "shoulder_pan": {"id": 1, "drive_mode": 0, "homing_offset": -312, "range_min": 815, "range_max": 3240},
+    "…": "je Gelenk ein Eintrag"
+  },
+  "target_rate_hz": 10.0,
+  "source": "von Hand geführt (Drehmoment aus)",
+  "recorded_with": "skript_06"
 }
 ```
 
@@ -77,7 +85,8 @@ Warum **Rohwerte** (Servo-Schritte, 4096 je Umdrehung) statt Grad?
 
 - Eine Aufnahme geht auch **ohne Kalibrierung**.
 - Beim Abspielen entstehen exakt dieselben Sollwerte, ohne Umrechnungsfehler.
-- Die Kalibrierung steht im JSON (`calibration_id`, `calibration_file`), damit man sie zuordnen kann.
+- Die Kalibrierung steht im JSON: als Name (`calibration_id`, `calibration_file`) und mit ihren Werten
+  (`calibration`). Damit lässt sich die Aufnahme später auf einem **anderen** Arm abspielen (siehe unten).
 
 Namen dürfen Buchstaben, Ziffern, `_` und `-` enthalten. Eine vorhandene Aufnahme wird nie stillschweigend
 überschrieben (`--ueberschreiben` erlaubt es ausdrücklich).
@@ -95,9 +104,42 @@ uv run scripts/07_replay_trajectory.py --name winken
 Das Skript prüft zuerst, **bevor** sich etwas bewegt:
 
 - Gehören die Gelenke der Aufnahme zum Gerät? (Eine LeKiwi-Aufnahme passt nicht auf einen Follower.)
-- Liegt die **Startpose** der Aufnahme innerhalb der Gelenkgrenzen der Kalibrierung?
+- Liegen die Werte innerhalb der Gelenkgrenzen der Kalibrierung? Werte knapp außerhalb (z. B. die
+  Ruhestellung am Anschlag) werden auf die Grenzen begrenzt und als Hinweis ausgegeben. Liegt schon die
+  **Startpose** mehr als 400 Schritt außerhalb, bricht das Skript ab: Die Aufnahme passt nicht zum Arm.
+- Haben sich die Homing-Offsets seit der Aufnahme geändert (neu kalibriert)? Dann wird das herausgerechnet
+  (Kapitel [Datensätze](05-datensaetze.md)).
 
 Dann zeigt es, wie lange die Anfahrt und das Abspielen dauern, und fragt nach einer Bestätigung.
+
+### Von einem Arm auf einen anderen
+
+Zwei Arme haben für **dieselbe Stellung verschiedene Rohwerte**: Jeder Servo sitzt etwas anders auf
+seiner Achse, deshalb hat jeder Arm seine eigene Kalibrierung. Eine Leader-Aufnahme mit Rohwerten
+1:1 auf dem Follower abzuspielen, ergäbe eine verschobene Bewegung.
+
+Deshalb rechnet das Abspielen um, wie LeRobot bei der Teleoperation: **Rohwert → Grad** mit der
+Kalibrierung, mit der aufgenommen wurde, dann **Grad → Rohwert** mit der Kalibrierung des Arms, der
+abspielt. Für ein Gelenk in Grad gilt (Kapitel [Einrichtung](02-einrichtung.md), Kalibrierung):
+
+```
+Grad = (Roh − Mitte) · 360 / 4095        Mitte = (range_min + range_max) / 2
+```
+
+Beispiel: Beim Leader liegt die Mitte von `elbow_flex` bei 2000, beim Follower bei 2300. Steht der
+Leader auf 2500, sind das (2500 − 2000) · 360 / 4095 ≈ 44°. Der Follower bekommt
+2300 + 44° · 4095 / 360 = 2800. Der Greifer läuft in Prozent zwischen `range_min` und `range_max`.
+
+Was das Skript (und die Web-App) daraus macht:
+
+| Aufnahme | Arm, der abspielt | Umrechnung |
+|---|---|---|
+| gleiche Kalibrierung | — | keine, Rohwerte direkt |
+| Kalibrierung im JSON | kalibriert | über Grad/Prozent |
+| ohne Kalibrierung (oder Arm unkalibriert) | — | keine: Rohwerte unverändert, passt nur bei gleich zusammengebauten Armen |
+
+Die Zeile „Umrechnung: …“ in der Ausgabe sagt, welcher Fall vorliegt. LeKiwi-Gelenke heißen
+`arm_shoulder_pan` usw.; eine SO-101-Aufnahme lässt sich trotzdem auf dem LeKiwi-Arm abspielen.
 
 ### Reihenfolge
 
@@ -159,6 +201,6 @@ will, stellt für das Abspielen `safe_state = "hold"` ein.
 
 ## Grenzen dieses Kapitels
 
-Die Skripte hier nehmen **ohne Kamera** auf. Aufnahmen mit Kamera als LeRobot-Dataset, die Oberfläche
-mit Start-Knopf und Live-Plot in der Web-App und eine Bibliothek aller Aufnahmen folgen in späteren
-Ausbaustufen.
+Die Skripte hier nehmen **ohne Kamera** auf. Aufnehmen, Abspielen, Teleoperation und eine Bibliothek
+mit Kurvenansicht gibt es in der Web-App (Kapitel [Datensätze](05-datensaetze.md)). Aufnahmen mit
+Kamera als LeRobot-Dataset folgen in einer späteren Ausbaustufe.

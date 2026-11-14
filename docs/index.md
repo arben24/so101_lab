@@ -41,6 +41,7 @@ Schritt 5 fragt vor der Bewegung nach einer Bestätigung. Das Gelenk fährt nur 
 | Lernskripte | `scripts/01…07` | kurze, kommentierte Programme, jedes für sich lauffähig |
 | Befehl `so101-lab` | `doctor`, `ports`, `scan`, `state`, `web` | Umgebung prüfen, Servos suchen, Zustand lesen, Web-App |
 | Konfiguration | `config/arms.toml` | welche Geräte es gibt, Port, Kalibrierung, Bewegungsgrenzen |
+| Kalibrierdateien | alle Kalibrierdateien ansehen, löschen (mit Backup), wiederherstellen, importieren; Abgleich mit den Servos |
 | Aufnahmen | `recordings/` | Bewegungen als CSV und JSON (nicht im Git) |
 | Kalibrierung | `calibration/` | Kalibrierdateien je Arm im LeRobot-Format |
 | ESP32-Firmware | `firmware/esp32/` | Referenz für die Funkanbindung (Kapitel 07, folgt) |
@@ -74,9 +75,10 @@ Reiter der Web-App:
 | Einzelservo | ein Gelenk: Live-Werte, Tempo- und Beschleunigungsgrenze, Schieberegler, Drehmoment |
 | Register | alle Register eines Servos lesen, freigegebene schreiben (EEPROM nur mit Bestätigung) |
 | Kalibrierung | geführte Kalibrierung mit Anzeige, wo die Datei gespeichert wird |
+| Aufnahmen | von Hand aufnehmen, Teleoperation Leader → Follower, Bibliothek mit Kurven, Abspielen |
 | Einrichtung | Assistent für neue Servos: ID und Baudrate vergeben, prüfen, protokollieren (genau ein Servo am Bus) |
 
-Recorder und Kamera kommen in den nächsten Ausbaustufen dazu.
+Kamera und LeRobot-Datasets kommen in der nächsten Ausbaustufe dazu.
 
 <a class="lab-link" href="../index.html#status">Web-App öffnen</a>
 
