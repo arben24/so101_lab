@@ -54,7 +54,15 @@ def create_backend(cfg: DeviceConfig, port: str | None = None) -> ArmBackend:
         spec = get_device_spec(cfg.type)
         return MockBackend.for_ids(spec.ids, wheel_ids=[w.motor_id for w in spec.wheels])
     if cfg.backend == "remote":
-        raise NotSupportedError("Das Remote-Backend folgt in Phase 7.")
+        from .remote import RemoteBackend, token_from_env
+
+        assert cfg.address  # vom Konfigurations-Lader geprüft
+        return RemoteBackend(
+            cfg.address,
+            cfg.remote_device or cfg.name,
+            token=token_from_env(cfg.token_env),
+            expected_ids=get_device_spec(cfg.type).ids,
+        )
     if cfg.backend == "esp32":
         raise NotSupportedError("Das ESP32-Backend folgt in Phase 8.")
     raise BackendError(f"Unbekanntes Backend '{cfg.backend}'.")

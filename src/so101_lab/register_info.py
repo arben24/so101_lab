@@ -1,6 +1,7 @@
 """Einheit und Bedeutung der STS3215-Register (für Lernskript 02, Doku und Register-Explorer).
 
-Quelle: Feetech-Speichertabelle V3.7 (`firmware/esp32/doku/sts3215/STS3215_Speichertabelle_V3.7.xls`),
+Quelle: Feetech-Speichertabelle V3.7 (`STS3215_Speichertabelle_V3.7.xls`, Link in
+`firmware/esp32/doku/sts3215/README.md`),
 Spalten „Unit“ und „Value Parsing“. Die Registernamen und Adressen kommen aus rustypot
 (`registers.py`), hier steht nur der erklärende Text dazu.
 

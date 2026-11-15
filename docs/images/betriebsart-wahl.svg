@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 350" role="img" aria-labelledby="t d">
+  <title id="t">Welche Betriebsart?</title>
+  <desc id="d">Entscheidung: Läuft am Laptop ein Leader-Arm, ein eigenes Skript oder ein Dataset mit dem Gerät am Pi? Ja: Betriebsart B. Nein: Betriebsart A.</desc>
+  <defs>
+    <marker id="pfeil2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#555"/>
+    </marker>
+  </defs>
+  <style>
+    text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; fill: #222; }
+    .zeile { font-size: 13px; }
+    .fett { font-size: 14px; font-weight: 700; }
+    .klein { font-size: 12px; fill: #444; }
+    .start { fill: #eeeeee; stroke: #757575; }
+    .frage { fill: #fff8e1; stroke: #c79100; stroke-width: 1.5; }
+    .a { fill: #e8f5e9; stroke: #2e7d32; stroke-width: 1.5; }
+    .b { fill: #e3ecfd; stroke: #3b6fd8; stroke-width: 1.5; }
+    .linie { stroke: #555; stroke-width: 2; fill: none; }
+  </style>
+
+  <rect class="start" x="200" y="12" width="300" height="40" rx="20"/>
+  <text class="zeile" x="350" y="37" text-anchor="middle">Gerät hängt per USB am Pi</text>
+  <line class="linie" x1="350" y1="52" x2="350" y2="84" marker-end="url(#pfeil2)"/>
+
+  <polygon class="frage" points="350,86 590,150 350,214 110,150"/>
+  <text class="zeile" x="350" y="136" text-anchor="middle">Soll am Laptop etwas mit dem Gerät</text>
+  <text class="zeile" x="350" y="154" text-anchor="middle">zusammenarbeiten: Leader-Arm, eigenes</text>
+  <text class="zeile" x="350" y="172" text-anchor="middle">Skript oder Dataset am Laptop?</text>
+
+  <line class="linie" x1="110" y1="150" x2="60" y2="150"/>
+  <line class="linie" x1="60" y1="150" x2="60" y2="240" marker-end="url(#pfeil2)"/>
+  <text class="fett" x="70" y="140">nein</text>
+  <rect class="a" x="10" y="242" width="300" height="96" rx="8"/>
+  <text class="fett" x="24" y="266">A: Browser auf den Pi</text>
+  <text class="klein" x="24" y="286">http://lekiwi.local:8000/ im Browser öffnen.</text>
+  <text class="klein" x="24" y="304">Am Laptop wird nichts installiert.</text>
+  <text class="klein" x="24" y="322">Kameras des Pi gehen.</text>
+
+  <line class="linie" x1="590" y1="150" x2="640" y2="150"/>
+  <line class="linie" x1="640" y1="150" x2="640" y2="240" marker-end="url(#pfeil2)"/>
+  <text class="fett" x="596" y="140">ja</text>
+  <rect class="b" x="390" y="242" width="300" height="96" rx="8"/>
+  <text class="fett" x="404" y="266">B: RemoteBackend</text>
+  <text class="klein" x="404" y="286">so101-lab läuft auch am Laptop,</text>
+  <text class="klein" x="404" y="304">dort in arms.toml backend = "remote".</text>
+  <text class="klein" x="404" y="322">Kameras des Pi gehen hier noch nicht.</text>
+</svg>

@@ -78,7 +78,19 @@ Räder laufen im Geschwindigkeitsmodus.
 | 8 | `base_back_wheel` | Geschwindigkeit |
 | 9 | `base_right_wheel` | Geschwindigkeit |
 
-Die Basis wird in einem späteren Kapitel behandelt (LeKiwi).
+In `config/arms.toml` gibt es für dieselbe Hardware drei Gerätetypen. Alle teilen sich eine
+Kalibrierdatei (`calibration/robots/lekiwi/<id>.json`, wie bei LeRobot mit allen neun Motoren). Wer nur
+einen Teil kalibriert, ändert nur dessen Einträge.
+
+| Typ | Motoren | Wozu |
+|---|---|---|
+| `lekiwi` | 1–9 | Arm und Basis zusammen, wie LeRobots `LeKiwi` |
+| `lekiwi_arm` | 1–6 | nur der Arm, die Räder bleiben unberührt |
+| `lekiwi_base` | 7–9 | nur die Basis, der Arm bleibt unberührt |
+
+Die drei hängen am selben Bus, deshalb ist immer nur einer verbunden. Die Basis wird in einem
+späteren Kapitel behandelt (LeKiwi). Über einen Raspberry Pi auf der Basis geht es in Kapitel
+[Raspberry Pi](06-raspberry-pi.md).
 
 ## Der Servo STS3215
 

@@ -25,7 +25,8 @@ dev = [
 ]
 docs = ["mkdocs-material>=9.5"]
 sim = ["mujoco>=3"]
-# torch-Variante für Linux x86_64. Standard ist "cpu" (ca. 1,2 GB). Für Training:
+# torch-Variante unter Linux. Standard ist "cpu" (x86_64 ca. 1,2 GB; auch aarch64/Raspberry Pi,
+# dort kämen von PyPI sonst mehrere GB CUDA-Pakete mit). Für Training (nur x86_64):
 #   uv sync --no-group cpu --group cuda
 cpu = ["torch", "torchvision"]
 cuda = ["torch", "torchvision"]
@@ -36,11 +37,11 @@ conflicts = [[{ group = "cpu" }, { group = "cuda" }]]
 
 [tool.uv.sources]
 torch = [
-    { index = "pytorch-cpu", group = "cpu", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
+    { index = "pytorch-cpu", group = "cpu", marker = "sys_platform == 'linux'" },
     { index = "pytorch-cuda", group = "cuda", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
 ]
 torchvision = [
-    { index = "pytorch-cpu", group = "cpu", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
+    { index = "pytorch-cpu", group = "cpu", marker = "sys_platform == 'linux'" },
     { index = "pytorch-cuda", group = "cuda", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
 ]
 

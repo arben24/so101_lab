@@ -7,3 +7,6 @@ site/
 recordings/*
 !recordings/.gitkeep
 calibration/**/*.json.bak
+
+# Hersteller-Dokumente (Urheberrecht Feetech, nicht weitergeben), Links in firmware/esp32/doku/sts3215/README.md
+firmware/esp32/doku/sts3215/originale/

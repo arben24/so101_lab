@@ -4,8 +4,8 @@ Ein Backend kennt nur Servo-IDs, Registernamen und **rohe Servo-Einheiten** (Pos
 Schritten 0…4095, Tempo in Schritt/s). Gelenknamen, Kalibrierung und Grenzen liegen eine
 Ebene höher in `so101_lab.arm.Arm`.
 
-Implementierungen: UsbBackend (lokal per USB), MockBackend (simuliert), später
-RemoteBackend (Phase 7) und Esp32Backend (Phase 8).
+Implementierungen: UsbBackend (lokal per USB), MockBackend (simuliert), RemoteBackend
+(Bus an einem anderen Rechner, z. B. Raspberry Pi) und später Esp32Backend (Phase 8).
 
 Schreibzugriffe:
 - `write_register` schreibt nur RAM-Register. EEPROM-Register lehnt es ab.

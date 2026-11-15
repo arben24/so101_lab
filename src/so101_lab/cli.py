@@ -6,7 +6,8 @@ Unterbefehle:
   scan    sucht Servos am Bus (IDs, Modell, Baudrate, Firmware)
   cameras sucht Kameras und zeigt einen Eintrag für arms.toml
   state   liest den Zustand aller Gelenke eines Geräts (nur lesend)
-  web     startet die Web-App samt Doku
+  web     startet die Web-App samt Doku (und Bus-Freigabe für andere Rechner)
+  service gibt eine systemd-Unit für den Raspberry Pi aus (Kapitel 06)
 
 Der Port wird nicht über udev-Regeln festgelegt, sondern bei jedem Aufruf gewählt:
 mit --port, aus config/arms.toml oder interaktiv aus der Liste.
@@ -224,8 +225,15 @@ def cmd_web(args) -> int:
         )
     if not 100 <= args.watchdog_ms <= 2000:
         raise CliError("--watchdog-ms muss zwischen 100 und 2000 liegen.")
+    if not 100 <= args.bus_watchdog_ms <= 2000:
+        raise CliError("--bus-watchdog-ms muss zwischen 100 und 2000 liegen.")
     docs_dir = None if args.no_docs else build_docs()
-    server = LabServer(config_path=args.config, token=token, watchdog_ms=args.watchdog_ms)
+    server = LabServer(
+        config_path=args.config,
+        token=token,
+        watchdog_ms=args.watchdog_ms,
+        bus_watchdog_ms=args.bus_watchdog_ms,
+    )
     app = create_app(server, docs_dir=docs_dir)
     shown = "127.0.0.1" if args.host in ("0.0.0.0", "::") else args.host
     print(f"so101-lab Web-App: http://{shown}:{args.port}/" + ("  (Token nötig)" if token else ""))
@@ -233,6 +241,13 @@ def cmd_web(args) -> int:
         print(f"Doku:              http://{shown}:{args.port}/docs/index.html")
     print(f"Watchdog {args.watchdog_ms} ms. Strg+C beendet und setzt alle Geräte sicher zurück.", flush=True)
     uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
+    return 0
+
+
+def cmd_service(args) -> int:
+    from .service import unit_text
+
+    print(unit_text(port=args.port, docs=args.docs, config=args.config), end="")
     return 0
 
 
@@ -276,8 +291,19 @@ def build_parser() -> argparse.ArgumentParser:
     web.add_argument("--port", type=int, default=8000, help="TCP-Port")
     web.add_argument("--token", default=None, help=f"Zugriffstoken (sonst Umgebungsvariable {TOKEN_ENV})")
     web.add_argument("--watchdog-ms", type=int, default=400, help="Watchdog in ms (100–2000, Standard 400)")
+    web.add_argument(
+        "--bus-watchdog-ms",
+        type=int,
+        default=500,
+        help="Watchdog der Bus-Freigabe für andere Rechner (RemoteBackend) in ms, Standard 500",
+    )
     web.add_argument("--no-docs", action="store_true", help="Doku nicht bauen und nicht einbinden")
     web.add_argument("--config", default=None, help="Pfad zu arms.toml")
+
+    service = sub.add_parser("service", help="systemd-Unit für den Raspberry Pi ausgeben")
+    service.add_argument("--port", type=int, default=8000, help="TCP-Port der Web-App")
+    service.add_argument("--docs", action="store_true", help="Doku beim Start bauen (langsamer)")
+    service.add_argument("--config", default=None, help="Pfad zu arms.toml (Standard: config/arms.toml)")
     return parser
 
 
@@ -296,6 +322,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "cameras": cmd_cameras,
         "state": cmd_state,
         "web": cmd_web,
+        "service": cmd_service,
     }
     try:
         return commands[args.command](args)

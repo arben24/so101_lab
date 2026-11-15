@@ -2,11 +2,14 @@
 # Wird ab Phase 2 vom Konfigurations-Lader gelesen; `so101-lab doctor` prüft schon jetzt,
 # ob die Datei gültiges TOML ist.
 #
-# type:    so101_follower | so101_leader | lekiwi
+# type:    so101_follower | so101_leader | lekiwi | lekiwi_arm | lekiwi_base
+#          lekiwi = Arm und Basis (IDs 1–9), lekiwi_arm = nur Arm (1–6), lekiwi_base = nur
+#          Basis (7–9). Alle drei teilen sich die Kalibrierdatei calibration/robots/lekiwi/.
 # backend: usb | remote | esp32 | mock
 #   usb     Arm hängt per USB am eigenen Rechner (port)
-#   remote  Arm hängt an einem anderen Rechner, z. B. Raspberry Pi (address, token)
-#   esp32   Arm hängt an einem ESP32-Funkknoten (address)
+#   remote  Arm hängt an einem anderen Rechner, z. B. Raspberry Pi (address, token_env,
+#           remote_device). Dort läuft `so101-lab web` mit derselben Gerätetabelle.
+#   esp32   Arm hängt an einem ESP32-Funkknoten (address, Kapitel 07)
 #   mock    simulierte Motoren, keine Hardware nötig
 # port:    nur für usb. Darf fehlen: Dann wird der Port beim Start gewählt (Liste aus
 #          `so101-lab ports`, später Auswahlliste in der Web-App). Feste Namen über
@@ -39,19 +42,45 @@ cameras = [
 # port = "/dev/ttyACM1"
 # calibration_id = "leader_1"
 
-# [[device]]
-# name = "pi_follower"
-# type = "so101_follower"
-# backend = "remote"
-# address = "http://raspberrypi.local:8000"
-# token_env = "SO101_TOKEN"     # Name der Umgebungsvariable mit dem Token
-# calibration_id = "follower_1"
+# LeKiwi (Adapter SN 5AAF263183, 9 Servos), per USB am eigenen Rechner („kabelgebundene“
+# LeKiwi). Drei Einträge für dieselbe Hardware: es kann immer nur einer verbunden sein.
+[[device]]
+name = "lekiwi"
+type = "lekiwi"
+backend = "usb"
+calibration_id = "lekiwi_1"
 
+[[device]]
+name = "lekiwi_arm"
+type = "lekiwi_arm"
+backend = "usb"
+calibration_id = "lekiwi_1"
+
+[[device]]
+name = "lekiwi_base"
+type = "lekiwi_base"
+backend = "usb"
+calibration_id = "lekiwi_1"
+
+# Derselbe LeKiwi über den Raspberry Pi (Kapitel 06). Auf dem Pi steht in dessen arms.toml
+# ein usb-Gerät mit dem Namen aus remote_device, dort läuft `so101-lab web --host 0.0.0.0`.
 # [[device]]
-# name = "esp_kiwi"
-# type = "lekiwi"
-# backend = "esp32"
-# address = "lekiwi-3fa2.local"
+# name = "pi_lekiwi"
+# type = "lekiwi"               # muss zum Gerät auf dem Pi passen (oder lekiwi_arm/lekiwi_base)
+# backend = "remote"
+# address = "raspberrypi.local:8000"
+# remote_device = "lekiwi"      # Name auf dem Pi, Standard: derselbe Name wie hier
+# token_env = "SO101_REMOTE_TOKEN"  # Umgebungsvariable mit dem Token des Pi (das ist der Standard)
+# calibration_id = "lekiwi_1"
+
+# LeKiwi über einen ESP32-Funkknoten (Kapitel 07). Profil des Knotens muss passen (hier lekiwi).
+# Knoten suchen: uv run so101-lab esp32 suchen. Ohne Hardware: uv run so101-lab esp32 sim
+[[device]]
+name = "esp_kiwi"
+type = "lekiwi"
+backend = "esp32"
+address = "192.168.178.82"  # Name oder IP, für die Simulation "127.0.0.1:4210"
+calibration_id = "lekiwi_1"
 
 [[device]]
 name = "demo"

@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = "==3.12.*"
 resolution-markers = [
     "platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda'",
@@ -8,10 +8,12 @@ resolution-markers = [
     "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'arm64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')",
     "(platform_machine != 'AMD64' and platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine != 'arm64' and sys_platform == 'darwin' and extra != 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32' and extra != 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')",
     "platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda'",
-    "(platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'AMD64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')",
+    "platform_machine == 'AMD64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda'",
+    "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda'",
     "sys_platform == 'win32' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda'",
     "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'arm64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')",
-    "(platform_machine != 'AMD64' and platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine != 'arm64' and sys_platform == 'darwin' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')",
+    "platform_machine != 'AMD64' and platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda'",
+    "(platform_machine != 'arm64' and sys_platform == 'darwin' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')",
     "(platform_machine == 'arm64' and sys_platform == 'darwin' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'AMD64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')",
     "sys_platform == 'win32' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda'",
     "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'arm64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')",
@@ -111,7 +113,7 @@ name = "cffi"
 version = "2.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", marker = "implementation_name != 'PyPy' or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "pycparser" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/9e/ef/008a1939e372c06329a3fce4279c02f328488f3526744906eeec3da7ad5f/cffi-2.1.1.tar.gz", hash = "sha256:dd31f52ea1086513bb9df30f8fcee9b8918323ae067a3d5b78bc826a000712be", size = 530807, upload-time = "2026-08-03T21:21:18.939Z" }
 wheels = [
@@ -228,7 +230,7 @@ name = "cuda-bindings"
 version = "13.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cuda-pathfinder", marker = "(platform_machine != 'x86_64' and sys_platform == 'linux') or (sys_platform != 'linux' and sys_platform != 'win32') or (sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'win32' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "cuda-pathfinder", marker = "(sys_platform != 'win32' and extra != 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b9/a6/13d14600381bdbfe55dfc35564e4bf4a208f169ee9f6cbeb356564268aff/cuda_bindings-13.5.0-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:40eadfad6ae1554f8c1aa456620a85a49a275fc902f2c6dd93ee8c488b2c5e9f", size = 7354398, upload-time = "2026-11-05T12:06:03.542Z" },
@@ -255,40 +257,40 @@ wheels = [
 
 [package.optional-dependencies]
 cublas = [
-    { name = "nvidia-cublas", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "nvidia-cuda-nvrtc", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-cublas", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-cuda-nvrtc", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 cudart = [
-    { name = "nvidia-cuda-runtime", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-cuda-runtime", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 cufft = [
-    { name = "nvidia-cufft", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "nvidia-nvjitlink", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-cufft", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-nvjitlink", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 cufile = [
-    { name = "nvidia-cufile", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-cufile", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 cupti = [
-    { name = "nvidia-cuda-cupti", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-cuda-cupti", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 cusolver = [
-    { name = "nvidia-cublas", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "nvidia-cusolver", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "nvidia-cusparse", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "nvidia-nvjitlink", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-cublas", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-cusolver", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-cusparse", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-nvjitlink", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 cusparse = [
-    { name = "nvidia-cusparse", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "nvidia-nvjitlink", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-cusparse", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-nvjitlink", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 nvjitlink = [
-    { name = "nvidia-nvjitlink", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-nvjitlink", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 nvrtc = [
-    { name = "nvidia-cuda-nvrtc", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-cuda-nvrtc", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 nvtx = [
-    { name = "nvidia-nvtx", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-nvtx", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 
 [[package]]
@@ -545,11 +547,11 @@ name = "httpx2"
 version = "2.16.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "anyio", marker = "sys_platform != 'emscripten' or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "httpcore2", marker = "sys_platform != 'emscripten' or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "httpx2-jsfetch", marker = "sys_platform == 'emscripten' or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "anyio", marker = "sys_platform != 'emscripten'" },
+    { name = "httpcore2", marker = "sys_platform != 'emscripten'" },
+    { name = "httpx2-jsfetch", marker = "sys_platform == 'emscripten'" },
     { name = "idna" },
-    { name = "truststore", marker = "sys_platform != 'emscripten' or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "truststore", marker = "sys_platform != 'emscripten'" },
     { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/43/73/5ca2cedf5e4e50423d1c258877865a6b62793633b561c58499f8aeb33b7e/httpx2-2.16.0.tar.gz", hash = "sha256:0d54c98128e8f2ff7fbbde0fca8c359e5f032edeaaaac443cdb7f31f685bcd7f", size = 103116, upload-time = "2026-10-21T07:09:46.348Z" }
@@ -574,7 +576,7 @@ dependencies = [
     { name = "click" },
     { name = "filelock" },
     { name = "fsspec" },
-    { name = "hf-xet", marker = "platform_machine == 'AMD64' or platform_machine == 'ARM64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64' or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "hf-xet", marker = "platform_machine == 'AMD64' or platform_machine == 'ARM64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'" },
     { name = "httpx2" },
     { name = "packaging" },
     { name = "pyyaml" },
@@ -648,12 +650,12 @@ dependencies = [
     { name = "safetensors" },
     { name = "setuptools" },
     { name = "termcolor" },
-    { name = "torch", version = "2.15.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'linux' or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')" },
-    { name = "torch", version = "2.15.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "torch", version = "2.15.0+cu132", source = { registry = "https://download.pytorch.org/whl/cu132" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "torchvision", version = "0.29.2", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'linux' or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')" },
-    { name = "torchvision", version = "0.29.2+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "torchvision", version = "0.29.2+cu132", source = { registry = "https://download.pytorch.org/whl/cu132" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "torch", version = "2.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cuda') or sys_platform != 'linux' or (extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "torch", version = "2.15.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "torch", version = "2.15.0+cu132", source = { registry = "https://download.pytorch.org/whl/cu132" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "torchvision", version = "0.29.2", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cuda') or sys_platform != 'linux' or (extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "torchvision", version = "0.29.2+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "torchvision", version = "0.29.2+cu132", source = { registry = "https://download.pytorch.org/whl/cu132" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
     { name = "tqdm" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/19/75/8a71facc037271c10d3da257ae8d4cf4c907ed495846f4d142215a5403fc/lerobot-0.7.0.tar.gz", hash = "sha256:1fe5613ee2e336e76902348b85b3f691c7e9a0f27b9da2fa703291280a610fb2", size = 2151905, upload-time = "2026-11-05T17:13:36.098Z" }
@@ -673,7 +675,7 @@ core-scripts = [
     { name = "pynput" },
     { name = "pyserial" },
     { name = "rerun-sdk" },
-    { name = "torchcodec", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'AMD64' and sys_platform == 'linux') or (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'arm64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux') or sys_platform == 'win32' or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'darwin' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "torchcodec", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'AMD64' and sys_platform == 'linux') or (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'arm64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux') or sys_platform == 'win32'" },
 ]
 feetech = [
     { name = "pyserial" },
@@ -732,7 +734,7 @@ version = "1.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
     { name = "ghp-import" },
     { name = "jinja2" },
     { name = "markdown" },
@@ -918,7 +920,7 @@ name = "nvidia-cublas"
 version = "13.4.1.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cuda-nvrtc", marker = "(platform_machine != 'x86_64' and sys_platform == 'linux') or (sys_platform != 'linux' and sys_platform != 'win32') or (sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'win32' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-cuda-nvrtc", marker = "(sys_platform != 'win32' and extra != 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d0/a0/5cd9d4b08a8320f7ca150ee0d66c97e98092922e338336cb4b62da7500c3/nvidia_cublas-13.4.1.3-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:4eb1472bf92b741e7cf24da7978dde251b58ddec2092d9f6a04f3623eb4e9a15", size = 513048232, upload-time = "2026-07-16T09:45:07.751Z" },
@@ -972,7 +974,7 @@ name = "nvidia-cudnn-cu13"
 version = "9.26.0.51"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas", marker = "(platform_machine != 'x86_64' and sys_platform == 'linux') or (sys_platform != 'linux' and sys_platform != 'win32') or (sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'win32' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-cublas", marker = "(sys_platform != 'win32' and extra != 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c5/1c/01e1dd3dec6ffe0baaff7e722b8946d867353d05a01301f128f1730fde0b/nvidia_cudnn_cu13-9.26.0.51-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:8e5b4f5eccff721416f70ecf4353172fc4d5cdd8ca869fe6f983a4a5b0147b20", size = 595329497, upload-time = "2026-09-10T16:45:39.945Z" },
@@ -985,7 +987,7 @@ name = "nvidia-cufft"
 version = "12.2.0.57"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'arm64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'arm64' and sys_platform == 'darwin' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'AMD64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'darwin' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-nvjitlink", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'arm64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'arm64' and sys_platform == 'darwin' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'AMD64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/07/8d/f650e6d527f9d22b5ded906c000eaebb037721c06d4ecd906df62f300979/nvidia_cufft-12.2.0.57-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:1ed438568ae1088ba2c25789d10205d4104b8b140b7bd942e39a787947a0fb74", size = 218244742, upload-time = "2026-07-16T09:47:08.76Z" },
@@ -1007,9 +1009,9 @@ name = "nvidia-cusolver"
 version = "12.2.0.11"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'arm64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'arm64' and sys_platform == 'darwin' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'AMD64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'darwin' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "nvidia-cusparse", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'arm64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'arm64' and sys_platform == 'darwin' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'AMD64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'darwin' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "nvidia-nvjitlink", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'arm64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'arm64' and sys_platform == 'darwin' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'AMD64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'darwin' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-cublas", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'arm64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'arm64' and sys_platform == 'darwin' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'AMD64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-cusparse", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'arm64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'arm64' and sys_platform == 'darwin' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'AMD64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-nvjitlink", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'arm64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'arm64' and sys_platform == 'darwin' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'AMD64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/60/df/9e6b603f1d64040ce3e076e9bce1b78e2d588d0aabc9783f351cecd861ab/nvidia_cusolver-12.2.0.11-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:8be097fca28de6be0990ab216ee9b804dd51077e1d1d83acf6c9850650bdc64d", size = 250383075, upload-time = "2026-07-16T09:50:16.355Z" },
@@ -1022,7 +1024,7 @@ name = "nvidia-cusparse"
 version = "12.7.10.12"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'arm64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'arm64' and sys_platform == 'darwin' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'AMD64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'darwin' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-nvjitlink", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'arm64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (platform_machine == 'arm64' and sys_platform == 'darwin' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'AMD64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/60/35/abbd278fb6d039fcfb5175efa10a21007a11878bec59920d84854b47d766/nvidia_cusparse-12.7.10.12-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:597eff2cd83e3ab1d1e3a0dce9c9c879d77cf64ec2659bfdb5af6a5d02e7aaa9", size = 169043093, upload-time = "2026-07-16T09:51:37.058Z" },
@@ -1065,7 +1067,7 @@ name = "nvidia-nvshmem-cu13"
 version = "3.7.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cuda-cccl", marker = "(platform_machine != 'x86_64' and sys_platform == 'linux') or (sys_platform != 'linux' and sys_platform != 'win32') or (sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu') or (sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'win32' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-cuda-cccl", marker = "(sys_platform != 'win32' and extra != 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/81/11/1767ef120299972822a43aceffbc81ac813aad2089d817e36e4e12aa4c9c/nvidia_nvshmem_cu13-3.7.2-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:0e748308b9e0a8a8d81859353f3e6c98fbe85a85f652a915a2ba60149a0bd124", size = 135174619, upload-time = "2026-07-17T19:24:15.404Z" },
@@ -1321,10 +1323,10 @@ name = "pynput"
 version = "1.8.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "evdev", marker = "'linux' in sys_platform or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "pyobjc-framework-applicationservices", marker = "sys_platform == 'darwin' or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "pyobjc-framework-quartz", marker = "sys_platform == 'darwin' or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "python-xlib", marker = "'linux' in sys_platform or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "evdev", marker = "'linux' in sys_platform" },
+    { name = "pyobjc-framework-applicationservices", marker = "sys_platform == 'darwin'" },
+    { name = "pyobjc-framework-quartz", marker = "sys_platform == 'darwin'" },
+    { name = "python-xlib", marker = "'linux' in sys_platform" },
     { name = "six" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/86/c6/e2d415610cfbc78308bee44218a46124aaa3301b1df08814df819b2254a1/pynput-1.8.2.tar.gz", hash = "sha256:f493c87157cd3861b4468f7f896857051762f44ed26f1b641e7cc5840a457087", size = 82818, upload-time = "2026-05-12T19:11:39.464Z" }
@@ -1346,10 +1348,10 @@ name = "pyobjc-framework-applicationservices"
 version = "13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pyobjc-core", marker = "(platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'linux') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'arm64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and sys_platform != 'win32') or (sys_platform == 'win32' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "pyobjc-framework-cocoa", marker = "(platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'linux') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'arm64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and sys_platform != 'win32') or (sys_platform == 'win32' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "pyobjc-framework-coretext", marker = "(platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'linux') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'arm64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and sys_platform != 'win32') or (sys_platform == 'win32' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "pyobjc-framework-quartz", marker = "(platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'linux') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'arm64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and sys_platform != 'win32') or (sys_platform == 'win32' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "pyobjc-core" },
+    { name = "pyobjc-framework-cocoa" },
+    { name = "pyobjc-framework-coretext" },
+    { name = "pyobjc-framework-quartz" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/69/02/fdcf6554abfb830f335e68a43a5ac102cdc73c720a1e039551d4a61f692b/pyobjc_framework_applicationservices-13.0.tar.gz", hash = "sha256:d869115dd13300fa9ce926cdc23e6cceec1279bc02cc75d1be24562c89cd9ecc", size = 108163, upload-time = "2026-10-30T10:45:46.598Z" }
 wheels = [
@@ -1361,7 +1363,7 @@ name = "pyobjc-framework-cocoa"
 version = "13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pyobjc-core", marker = "(platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'linux') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'arm64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and sys_platform != 'win32') or (sys_platform == 'win32' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "pyobjc-core" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/30/50/55a8779d35f1f86d795264cbd6fe62e35b2cf4fb8343fc888e99268c988a/pyobjc_framework_cocoa-13.0.tar.gz", hash = "sha256:bb7a23941fc8d7866578dbc84e56140efd343a1d28510f530dd1dbf80807daf4", size = 3135308, upload-time = "2026-10-30T10:46:03.982Z" }
 wheels = [
@@ -1373,9 +1375,9 @@ name = "pyobjc-framework-coretext"
 version = "13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pyobjc-core", marker = "(platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'linux') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'arm64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and sys_platform != 'win32') or (sys_platform == 'win32' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "pyobjc-framework-cocoa", marker = "(platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'linux') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'arm64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and sys_platform != 'win32') or (sys_platform == 'win32' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "pyobjc-framework-quartz", marker = "(platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'linux') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'arm64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and sys_platform != 'win32') or (sys_platform == 'win32' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "pyobjc-core" },
+    { name = "pyobjc-framework-cocoa" },
+    { name = "pyobjc-framework-quartz" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/fb/8c/6521bee7ae7a25ff7cf2ac91078f06a50a2ecf6ef35068108e18f542b398/pyobjc_framework_coretext-13.0.tar.gz", hash = "sha256:0ee3b7e886ffa4be769402c5341b2101d949e31a33d1a468d64b3a3579d2aea1", size = 97797, upload-time = "2026-10-30T10:46:20.71Z" }
 wheels = [
@@ -1387,8 +1389,8 @@ name = "pyobjc-framework-quartz"
 version = "13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pyobjc-core", marker = "(platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'linux') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'arm64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and sys_platform != 'win32') or (sys_platform == 'win32' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "pyobjc-framework-cocoa", marker = "(platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'linux') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'arm64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and sys_platform != 'win32') or (sys_platform == 'win32' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "pyobjc-core" },
+    { name = "pyobjc-framework-cocoa" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/7a/86/ffaa76ca28df5450cce14614c657b910bbd7bb737feaf47f74230c3b78d3/pyobjc_framework_quartz-13.0.tar.gz", hash = "sha256:b9a4942182efbbc7e18e6cb7f5a8faa166dc2fc5e33bece7c7b1355494274add", size = 3399243, upload-time = "2026-10-30T10:47:23.667Z" }
 wheels = [
@@ -1418,7 +1420,7 @@ name = "pytest"
 version = "9.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
     { name = "iniconfig" },
     { name = "packaging" },
     { name = "pluggy" },
@@ -1497,7 +1499,7 @@ name = "pyzmq"
 version = "27.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cffi", marker = "implementation_name == 'pypy' or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "cffi", marker = "implementation_name == 'pypy'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e2/e1/ea46ab0d707219c098065a37d2add5b53d3b124241aa19429bcd0863e5b4/pyzmq-27.3.0.tar.gz", hash = "sha256:bbedb3d1d99babc625f1dd9d7438acefd442b36b75073fd6bc1ef7c0a4b96d56", size = 293249, upload-time = "2026-11-04T00:31:33.068Z" }
 wheels = [
@@ -1644,6 +1646,7 @@ wheels = [
 name = "so101-lab"
 version = "0.1.0"
 source = { editable = "." }
+default-groups = ["cpu", "dev", "docs"]
 dependencies = [
     { name = "fastapi" },
     { name = "lerobot", extra = ["core-scripts", "feetech", "lekiwi"] },
@@ -1653,16 +1656,16 @@ dependencies = [
 
 [package.dev-dependencies]
 cpu = [
-    { name = "torch", version = "2.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "torch", version = "2.15.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "torchvision", version = "0.29.2", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "torchvision", version = "0.29.2+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "torch", version = "2.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "torch", version = "2.15.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "torchvision", version = "0.29.2", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "torchvision", version = "0.29.2+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 cuda = [
     { name = "torch", version = "2.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "torch", version = "2.15.0+cu132", source = { registry = "https://download.pytorch.org/whl/cu132" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "torch", version = "2.15.0+cu132", source = { registry = "https://download.pytorch.org/whl/cu132" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
     { name = "torchvision", version = "0.29.2", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "torchvision", version = "0.29.2+cu132", source = { registry = "https://download.pytorch.org/whl/cu132" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "torchvision", version = "0.29.2+cu132", source = { registry = "https://download.pytorch.org/whl/cu132" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 dev = [
     { name = "httpx" },
@@ -1686,10 +1689,10 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 cpu = [
-    { name = "torch", marker = "platform_machine != 'x86_64' or sys_platform != 'linux'" },
-    { name = "torch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "so101-lab", group = "cpu" } },
-    { name = "torchvision", marker = "platform_machine != 'x86_64' or sys_platform != 'linux'" },
-    { name = "torchvision", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "so101-lab", group = "cpu" } },
+    { name = "torch", marker = "sys_platform != 'linux'" },
+    { name = "torch", marker = "sys_platform == 'linux'", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "so101-lab", group = "cpu" } },
+    { name = "torchvision", marker = "sys_platform != 'linux'" },
+    { name = "torchvision", marker = "sys_platform == 'linux'", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "so101-lab", group = "cpu" } },
 ]
 cuda = [
     { name = "torch", marker = "platform_machine != 'x86_64' or sys_platform != 'linux'" },
@@ -1757,30 +1760,29 @@ resolution-markers = [
     "sys_platform == 'win32' and extra != 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda'",
     "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'arm64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')",
     "(platform_machine != 'AMD64' and platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine != 'arm64' and sys_platform == 'darwin' and extra != 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32' and extra != 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')",
-    "(platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'AMD64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')",
+    "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda'",
     "sys_platform == 'win32' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda'",
-    "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'arm64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')",
-    "(platform_machine != 'AMD64' and platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine != 'arm64' and sys_platform == 'darwin' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')",
+    "(platform_machine != 'arm64' and sys_platform == 'darwin' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')",
     "(platform_machine == 'arm64' and sys_platform == 'darwin' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'AMD64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')",
     "sys_platform == 'win32' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda'",
     "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'arm64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')",
     "(platform_machine != 'AMD64' and platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine != 'arm64' and sys_platform == 'darwin' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')",
 ]
 dependencies = [
-    { name = "cuda-bindings", marker = "(platform_machine != 'x86_64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')" },
-    { name = "cuda-toolkit", extra = ["cublas", "cudart", "cufft", "cufile", "cupti", "cusolver", "cusparse", "nvjitlink", "nvrtc", "nvtx"], marker = "(platform_machine != 'x86_64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')" },
-    { name = "filelock", marker = "platform_machine != 'x86_64' or sys_platform != 'linux' or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')" },
-    { name = "fsspec", marker = "platform_machine != 'x86_64' or sys_platform != 'linux' or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')" },
-    { name = "jinja2", marker = "platform_machine != 'x86_64' or sys_platform != 'linux' or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')" },
-    { name = "networkx", marker = "platform_machine != 'x86_64' or sys_platform != 'linux' or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')" },
-    { name = "nvidia-cudnn-cu13", marker = "(platform_machine != 'x86_64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')" },
-    { name = "nvidia-cusparselt-cu13", marker = "(platform_machine != 'x86_64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')" },
-    { name = "nvidia-nccl-cu13", marker = "(platform_machine != 'x86_64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')" },
-    { name = "nvidia-nvshmem-cu13", marker = "(platform_machine != 'x86_64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')" },
-    { name = "setuptools", marker = "platform_machine != 'x86_64' or sys_platform != 'linux' or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')" },
-    { name = "sympy", marker = "platform_machine != 'x86_64' or sys_platform != 'linux' or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')" },
-    { name = "triton", marker = "(platform_machine != 'x86_64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')" },
-    { name = "typing-extensions", marker = "platform_machine != 'x86_64' or sys_platform != 'linux' or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')" },
+    { name = "cuda-bindings", marker = "(platform_machine != 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "cuda-toolkit", extra = ["cublas", "cudart", "cufft", "cufile", "cupti", "cusolver", "cusparse", "nvjitlink", "nvrtc", "nvtx"], marker = "(platform_machine != 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "filelock", marker = "(platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cuda') or sys_platform != 'linux' or (extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "fsspec", marker = "(platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cuda') or sys_platform != 'linux' or (extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "jinja2", marker = "(platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cuda') or sys_platform != 'linux' or (extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "networkx", marker = "(platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cuda') or sys_platform != 'linux' or (extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-cudnn-cu13", marker = "(platform_machine != 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-cusparselt-cu13", marker = "(platform_machine != 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-nccl-cu13", marker = "(platform_machine != 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-nvshmem-cu13", marker = "(platform_machine != 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "setuptools", marker = "(platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cuda') or sys_platform != 'linux' or (extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "sympy", marker = "(platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cuda') or sys_platform != 'linux' or (extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "triton", marker = "(platform_machine != 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "typing-extensions", marker = "(platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cuda') or sys_platform != 'linux' or (extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/17/24/7b9b755e8c4dd2395c6a94bab6a4ed8aded1735ff2538bc63cbba8abeddd/torch-2.15.0-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:593e5fd0c204284890d1c3dff643be34e549e1d24523e13402510f960d4da438", size = 138558517, upload-time = "2026-10-28T15:16:35.918Z" },
@@ -1795,15 +1797,18 @@ version = "2.15.0+cpu"
 source = { registry = "https://download.pytorch.org/whl/cpu" }
 resolution-markers = [
     "platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "platform_machine == 'AMD64' and sys_platform == 'linux'",
+    "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'arm64' and sys_platform == 'linux')",
+    "platform_machine != 'AMD64' and platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'linux'",
 ]
 dependencies = [
-    { name = "filelock", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "fsspec", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "jinja2", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "networkx", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "setuptools", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "sympy", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "typing-extensions", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "filelock", marker = "(sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "fsspec", marker = "(sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "jinja2", marker = "(sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "networkx", marker = "(sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "setuptools", marker = "(sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "sympy", marker = "(sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "typing-extensions", marker = "(sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 wheels = [
     { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.15.0%2Bcpu-cp312-cp312-linux_s390x.whl", hash = "sha256:29c74659a82483d9a9c5d7f9e1112973dfa2dce5b3956dba5d1b97381b94cfae", upload-time = "2026-10-28T13:18:25Z" },
@@ -1821,20 +1826,20 @@ resolution-markers = [
     "platform_machine == 'x86_64' and sys_platform == 'linux'",
 ]
 dependencies = [
-    { name = "cuda-bindings", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "cuda-toolkit", extra = ["cublas", "cudart", "cufft", "cufile", "cupti", "cusolver", "cusparse", "nvjitlink", "nvrtc", "nvtx"], marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "filelock", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "fsspec", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "jinja2", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "networkx", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "nvidia-cudnn-cu13", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "nvidia-cusparselt-cu13", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "nvidia-nccl-cu13", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "nvidia-nvshmem-cu13", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "setuptools", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "sympy", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "triton", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "typing-extensions", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "cuda-bindings", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "cuda-toolkit", extra = ["cublas", "cudart", "cufft", "cufile", "cupti", "cusolver", "cusparse", "nvjitlink", "nvrtc", "nvtx"], marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "filelock", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "fsspec", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "jinja2", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "networkx", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-cudnn-cu13", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-cusparselt-cu13", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-nccl-cu13", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "nvidia-nvshmem-cu13", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "setuptools", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "sympy", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "triton", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "typing-extensions", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 wheels = [
     { url = "https://download-r2.pytorch.org/whl/cu132/torch-2.15.0%2Bcu132-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:b72cf81b4700684763b9439416b6cb70c0c1f1ded371a16add93349e45d81019", upload-time = "2026-10-28T13:23:00Z" },
@@ -1862,19 +1867,18 @@ resolution-markers = [
     "sys_platform == 'win32' and extra != 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda'",
     "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine == 'arm64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')",
     "(platform_machine != 'AMD64' and platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (platform_machine != 'arm64' and sys_platform == 'darwin' and extra != 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32' and extra != 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')",
-    "(platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'AMD64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')",
+    "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda'",
     "sys_platform == 'win32' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda'",
-    "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'arm64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')",
-    "(platform_machine != 'AMD64' and platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine != 'arm64' and sys_platform == 'darwin' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')",
+    "(platform_machine != 'arm64' and sys_platform == 'darwin' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32' and extra == 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')",
     "(platform_machine == 'arm64' and sys_platform == 'darwin' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'AMD64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')",
     "sys_platform == 'win32' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda'",
     "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine == 'arm64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')",
     "(platform_machine != 'AMD64' and platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'linux' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (platform_machine != 'arm64' and sys_platform == 'darwin' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32' and extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')",
 ]
 dependencies = [
-    { name = "numpy", marker = "platform_machine != 'x86_64' or sys_platform != 'linux' or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')" },
-    { name = "pillow", marker = "platform_machine != 'x86_64' or sys_platform != 'linux' or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')" },
-    { name = "torch", version = "2.15.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'linux' or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda')" },
+    { name = "numpy", marker = "(platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cuda') or sys_platform != 'linux' or (extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "pillow", marker = "(platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cuda') or sys_platform != 'linux' or (extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "torch", version = "2.15.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cuda') or sys_platform != 'linux' or (extra != 'group-9-so101-lab-cpu' and extra != 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/60/ec/ce97c46e5322b588b95be388f2c21878d014ca20838478e7aab59edd128a/torchvision-0.29.2-py3-none-macosx_14_0_arm64.whl", hash = "sha256:d412494ff011f24c884a3cffd33eba1cb45a0299d4e26c1e175113f9d3b3ebc7", size = 1823414, upload-time = "2026-10-28T15:21:31.892Z" },
@@ -1889,11 +1893,14 @@ version = "0.29.2+cpu"
 source = { registry = "https://download.pytorch.org/whl/cpu" }
 resolution-markers = [
     "platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "platform_machine == 'AMD64' and sys_platform == 'linux'",
+    "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'arm64' and sys_platform == 'linux')",
+    "platform_machine != 'AMD64' and platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'linux'",
 ]
 dependencies = [
-    { name = "numpy", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "pillow", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "torch", version = "2.15.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "numpy", marker = "(sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "pillow", marker = "(sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "torch", version = "2.15.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'linux' and extra == 'group-9-so101-lab-cpu') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 wheels = [
     { url = "https://download-r2.pytorch.org/whl/cpu/torchvision-0.29.2%2Bcpu-py3-none-manylinux_2_28_aarch64.whl", hash = "sha256:0be2f85933012cb487f844c7483665191653ee8684da89d6d0e34fd63c3a0a88", upload-time = "2026-10-28T14:18:50Z" },
@@ -1909,9 +1916,9 @@ resolution-markers = [
     "platform_machine == 'x86_64' and sys_platform == 'linux'",
 ]
 dependencies = [
-    { name = "numpy", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "pillow", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
-    { name = "torch", version = "2.15.0+cu132", source = { registry = "https://download.pytorch.org/whl/cu132" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (platform_machine != 'x86_64' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda') or (sys_platform != 'linux' and extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "numpy", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "pillow", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "torch", version = "2.15.0+cu132", source = { registry = "https://download.pytorch.org/whl/cu132" }, marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-9-so101-lab-cuda') or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
 ]
 wheels = [
     { url = "https://download-r2.pytorch.org/whl/cu132/torchvision-0.29.2%2Bcu132-py3-none-manylinux_2_28_aarch64.whl", hash = "sha256:1467eb5b8395d363d4b1e860ff852df79dcbf824b2684a66b9a4d2202e931a94", upload-time = "2026-10-28T14:19:01Z" },
@@ -1924,7 +1931,7 @@ name = "tqdm"
 version = "4.70.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'group-9-so101-lab-cpu' and extra == 'group-9-so101-lab-cuda')" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/0d/ea/b2a5bd54b28a324dae8211928b2d730b6547500342c7e6c6dea08bd0a485/tqdm-4.70.1.tar.gz", hash = "sha256:cefd0eca11b2a37a3aee776544d4f4ae913f02688135b5556b8788dfa474afc4", size = 171846, upload-time = "2026-09-11T07:25:16.601Z" }
 wheels = [

@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 500" role="img" aria-labelledby="t d">
+  <title id="t">Betriebsarten A und B</title>
+  <desc id="d">Links Betriebsart A: Der Laptop zeigt nur den Browser, Web-App, Arm und UsbBackend laufen auf dem Pi. Rechts Betriebsart B: Web-App, Skripte, Arm und RemoteBackend laufen am Laptop, der Pi führt nur Bus-Aufrufe aus und überwacht sie mit einem Watchdog.</desc>
+  <defs>
+    <marker id="pfeil" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#555"/>
+    </marker>
+  </defs>
+  <style>
+    text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; fill: #222; }
+    .titel { font-size: 16px; font-weight: 700; }
+    .rechner { font-size: 14px; font-weight: 700; }
+    .zeile { font-size: 13px; }
+    .klein { font-size: 12px; fill: #444; }
+    .rahmen { fill: #fafafa; stroke: #9e9e9e; stroke-width: 1.2; }
+    .teil { fill: #fff; stroke: #bdbdbd; }
+    .logik { fill: #e3ecfd; stroke: #3b6fd8; stroke-width: 1.5; }
+    .pi { fill: #fdecea; stroke: #c0392b; stroke-width: 1.5; }
+    .servo { fill: #eeeeee; stroke: #757575; }
+    .netz { stroke: #555; stroke-width: 2; stroke-dasharray: 6 4; fill: none; }
+    .kabel { stroke: #555; stroke-width: 2; fill: none; }
+  </style>
+
+  <!-- ================= A ================= -->
+  <text class="titel" x="195" y="26" text-anchor="middle">A: Browser auf den Pi</text>
+
+  <rect class="rahmen" x="20" y="44" width="350" height="96" rx="8"/>
+  <text class="rechner" x="36" y="68">Laptop</text>
+  <rect class="teil" x="36" y="80" width="318" height="44" rx="5"/>
+  <text class="zeile" x="50" y="100">Browser: http://lekiwi.local:8000/</text>
+  <text class="klein" x="50" y="116">zeigt nur an, rechnet nichts</text>
+
+  <line class="netz" x1="120" y1="140" x2="120" y2="232" marker-start="url(#pfeil)" marker-end="url(#pfeil)"/>
+  <text class="klein" x="136" y="166">WLAN, HTTP und WebSocket /ws:</text>
+  <text class="klein" x="136" y="183">Seiten, Zustand 20× je Sekunde,</text>
+  <text class="klein" x="136" y="200">Knöpfe (Bewegen, Kalibrieren …)</text>
+
+  <rect class="rahmen" x="20" y="234" width="350" height="172" rx="8"/>
+  <text class="rechner" x="36" y="258">Raspberry Pi</text>
+  <rect class="teil" x="36" y="268" width="318" height="30" rx="5"/>
+  <text class="zeile" x="50" y="288">so101-lab web (die ganze Web-App)</text>
+  <rect class="logik" x="36" y="306" width="318" height="44" rx="5"/>
+  <text class="zeile" x="50" y="326">Arm: Kalibrierung, Grenzen, Sicherheit</text>
+  <text class="klein" x="50" y="342">Kalibrierdateien und Aufnahmen auf dem Pi</text>
+  <rect class="teil" x="36" y="358" width="318" height="30" rx="5"/>
+  <text class="zeile" x="50" y="378">UsbBackend</text>
+
+  <line class="kabel" x1="120" y1="406" x2="120" y2="440" marker-end="url(#pfeil)"/>
+  <text class="klein" x="136" y="428">USB</text>
+  <rect class="servo" x="20" y="442" width="350" height="40" rx="8"/>
+  <text class="zeile" x="195" y="467" text-anchor="middle">Servos des LeKiwi (IDs 1–9)</text>
+
+  <!-- ================= B ================= -->
+  <text class="titel" x="585" y="26" text-anchor="middle">B: Pi gibt nur den Bus frei</text>
+
+  <rect class="rahmen" x="410" y="44" width="350" height="172" rx="8"/>
+  <text class="rechner" x="426" y="68">Laptop</text>
+  <rect class="teil" x="426" y="78" width="318" height="44" rx="5"/>
+  <text class="zeile" x="440" y="98">Web-App, Skripte, Leader-Arm (USB)</text>
+  <text class="klein" x="440" y="114">Aufnahmen und Datasets am Laptop</text>
+  <rect class="logik" x="426" y="130" width="318" height="44" rx="5"/>
+  <text class="zeile" x="440" y="150">Arm: Kalibrierung, Grenzen, Sicherheit</text>
+  <text class="klein" x="440" y="166">Kalibrierdateien am Laptop</text>
+  <rect class="teil" x="426" y="180" width="318" height="28" rx="5"/>
+  <text class="zeile" x="440" y="199">RemoteBackend</text>
+
+  <line class="netz" x1="510" y1="216" x2="510" y2="268" marker-start="url(#pfeil)" marker-end="url(#pfeil)"/>
+  <text class="klein" x="526" y="234">WLAN, WebSocket /ws/bus/lekiwi:</text>
+  <text class="klein" x="526" y="251">Bus-Aufrufe (Rohwerte), Lebenszeichen</text>
+
+  <rect class="rahmen" x="410" y="270" width="350" height="136" rx="8"/>
+  <text class="rechner" x="426" y="294">Raspberry Pi</text>
+  <rect class="teil" x="426" y="304" width="318" height="30" rx="5"/>
+  <text class="zeile" x="440" y="324">so101-lab web (dasselbe Programm)</text>
+  <rect class="pi" x="426" y="338" width="318" height="28" rx="5"/>
+  <text class="zeile" x="440" y="357">Bus-Freigabe mit Watchdog 500 ms</text>
+  <rect class="teil" x="426" y="370" width="318" height="28" rx="5"/>
+  <text class="zeile" x="440" y="389">UsbBackend</text>
+
+  <line class="kabel" x1="510" y1="406" x2="510" y2="440" marker-end="url(#pfeil)"/>
+  <text class="klein" x="526" y="428">USB</text>
+  <rect class="servo" x="410" y="442" width="350" height="40" rx="8"/>
+  <text class="zeile" x="585" y="467" text-anchor="middle">Servos des LeKiwi (IDs 1–9)</text>
+</svg>

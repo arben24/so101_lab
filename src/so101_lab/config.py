@@ -37,6 +37,7 @@ class DeviceConfig:
     port: str | None = None  # usb: kann leer bleiben, dann wählt der Nutzer den Port
     address: str | None = None  # remote/esp32
     token_env: str | None = None  # remote: Name der Umgebungsvariable mit dem Token
+    remote_device: str | None = None  # remote: Name des Geräts in der arms.toml auf dem Pi
     calibration_dir: Path | None = None
     cameras: list[CameraSpec] = field(default_factory=list)  # siehe so101_lab/cameras.py
     # Was beim Beenden oder bei einem Fehler mit dem Arm passiert:

@@ -43,7 +43,7 @@ anzufassen.
 | `werkzeuge/wasd_schwenkkopf.py` | **Beispiel:** zwei Servos per WASD schwenken, Positionsmodus |
 | `werkzeuge/wasd_lekiwi.py` | **Beispiel:** LeKiwi per WASD fahren (vorwärts, seitlich, drehen) |
 | `werkzeuge/kiwi.py` | Kiwi-Kinematik für `wasd_lekiwi.py` |
-| `doku/sts3215/` | Datenblatt, Registertabelle und Protokollhandbuch des STS3215 mit deutschem Auszug |
+| `doku/sts3215/` | deutscher Auszug aus Datenblatt, Registertabelle und Protokollhandbuch des STS3215, mit Links zu den Originalen (diese nicht im Repo) |
 
 ---
 

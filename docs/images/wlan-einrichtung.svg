@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 520" role="img" aria-labelledby="t d">
+  <title id="t">Pi ins WLAN bringen</title>
+  <desc id="d">Ablauf: Wurde das WLAN schon im Imager eingetragen, direkt per SSH anmelden. Sonst Pi per LAN-Kabel an den Router, Pi finden, per SSH anmelden, WLAN mit nmcli eintragen, prüfen, Kabel ziehen und über WLAN neu anmelden.</desc>
+  <defs>
+    <marker id="pfeil3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#555"/>
+    </marker>
+  </defs>
+  <style>
+    text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; fill: #222; }
+    .zeile { font-size: 13px; }
+    .fett { font-size: 13px; font-weight: 700; }
+    .code { font-family: ui-monospace, "DejaVu Sans Mono", Consolas, monospace; font-size: 12px; fill: #333; }
+    .schritt { fill: #fff; stroke: #9e9e9e; stroke-width: 1.2; }
+    .frage { fill: #fff8e1; stroke: #c79100; stroke-width: 1.5; }
+    .ziel { fill: #e8f5e9; stroke: #2e7d32; stroke-width: 1.5; }
+    .linie { stroke: #555; stroke-width: 2; fill: none; }
+  </style>
+
+  <polygon class="frage" points="250,10 430,46 250,82 70,46"/>
+  <text class="zeile" x="250" y="42" text-anchor="middle">WLAN schon im Imager</text>
+  <text class="zeile" x="250" y="59" text-anchor="middle">eingetragen?</text>
+  <line class="linie" x1="430" y1="46" x2="600" y2="46"/>
+  <line class="linie" x1="600" y1="46" x2="600" y2="432" marker-end="url(#pfeil3)"/>
+  <text class="fett" x="440" y="38">ja</text>
+  <line class="linie" x1="250" y1="82" x2="250" y2="104" marker-end="url(#pfeil3)"/>
+  <text class="fett" x="260" y="98">nein</text>
+
+  <rect class="schritt" x="20" y="106" width="460" height="46" rx="6"/>
+  <text class="fett" x="34" y="125">1. LAN-Kabel vom Pi zum Router, Pi einschalten</text>
+  <text class="zeile" x="34" y="143">Der Router gibt ihm per DHCP eine Adresse.</text>
+  <line class="linie" x1="250" y1="152" x2="250" y2="170" marker-end="url(#pfeil3)"/>
+
+  <rect class="schritt" x="20" y="172" width="460" height="46" rx="6"/>
+  <text class="fett" x="34" y="191">2. Pi finden</text>
+  <text class="code" x="34" y="209">ping raspberrypi.local<tspan class="zeile" dx="10">oder Geräteliste im Router</tspan></text>
+  <line class="linie" x1="250" y1="218" x2="250" y2="236" marker-end="url(#pfeil3)"/>
+
+  <rect class="schritt" x="20" y="238" width="460" height="46" rx="6"/>
+  <text class="fett" x="34" y="257">3. Anmelden (Terminal oder VS Code Remote-SSH)</text>
+  <text class="code" x="34" y="275">ssh benutzer@raspberrypi.local</text>
+  <line class="linie" x1="250" y1="284" x2="250" y2="302" marker-end="url(#pfeil3)"/>
+
+  <rect class="schritt" x="20" y="304" width="460" height="46" rx="6"/>
+  <text class="fett" x="34" y="323">4. WLAN eintragen (bleibt gespeichert)</text>
+  <text class="code" x="34" y="341">sudo nmcli --ask device wifi connect "SSID"</text>
+  <line class="linie" x1="250" y1="350" x2="250" y2="368" marker-end="url(#pfeil3)"/>
+
+  <rect class="schritt" x="20" y="370" width="460" height="46" rx="6"/>
+  <text class="fett" x="34" y="389">5. Prüfen: hat wlan0 eine Adresse?</text>
+  <text class="code" x="34" y="407">nmcli device status<tspan class="zeile" dx="10">und</tspan><tspan class="code" dx="10">hostname -I</tspan></text>
+  <line class="linie" x1="250" y1="416" x2="250" y2="432" marker-end="url(#pfeil3)"/>
+
+  <rect class="ziel" x="20" y="434" width="660" height="72" rx="8"/>
+  <text class="fett" x="34" y="456">6. LAN-Kabel ziehen, über WLAN neu anmelden</text>
+  <text class="code" x="34" y="476">ssh benutzer@raspberrypi.local</text>
+  <text class="zeile" x="34" y="495">Ab jetzt verbindet sich der Pi bei jedem Start selbst mit diesem WLAN.</text>
+</svg>

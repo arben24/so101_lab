@@ -1,8 +1,11 @@
 # Datenblatt Feetech STS3215
 
-Die Originale vom Hersteller, dazu unten ein Auszug auf Deutsch.
+Unten steht ein Auszug auf Deutsch. Die Originale des Herstellers liegen **nicht im Repo**: Sie tragen
+keinen Lizenz- oder Weitergabevermerk, das Urheberrecht liegt bei Feetech (geprüft am 15.11.2026).
+Herunterladen über die Links in der Tabelle und unter gleichem Namen in den Unterordner `originale/`
+legen. Der Ordner wird von git ignoriert.
 
-| Datei | Inhalt | Quelle |
+| Datei (in `originale/`) | Inhalt | Quelle |
 |---|---|---|
 | `STS3215-C001_Datenblatt_Feetech.pdf` | Produktspezifikation STS3215, 7,4-V-Variante, 1:345, Ausgabe A/1 vom 23.06.2023, 8 Seiten (Chinesisch und Englisch) | Feetech über Seeed Studio, [files.seeedstudio.com/…/108090023_STS3215-C001_Datasheet.pdf](https://files.seeedstudio.com/products/Feetech/108090023_STS3215-C001_Datasheet.pdf) |
 | `STS3215_Speichertabelle_V3.7.xls` | Speichertabelle (Register) STS3215, Version 3.7, Blatt 1 Chinesisch, Blatt 2 Englisch | Feetech über Waveshare, [files.waveshare.com/…/ST3215 memory register map-EN.xls](https://files.waveshare.com/upload/2/27/ST3215%20memory%20register%20map-EN.xls) |

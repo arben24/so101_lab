@@ -62,13 +62,14 @@ class DeviceSpec:
 
 
 def _get_registry() -> dict[str, DeviceSpec]:
-    from .lekiwi import LEKIWI
+    from .lekiwi import LEKIWI, LEKIWI_ARM, LEKIWI_BASE
     from .so101 import SO101_FOLLOWER, SO101_LEADER
 
-    return {s.type: s for s in (SO101_FOLLOWER, SO101_LEADER, LEKIWI)}
+    return {s.type: s for s in (SO101_FOLLOWER, SO101_LEADER, LEKIWI, LEKIWI_ARM, LEKIWI_BASE)}
 
 
-DEVICE_TYPES: tuple[str, ...] = ("so101_follower", "so101_leader", "lekiwi")
+# Reihenfolge zählt: Je Kalibrierordner gilt der erste Typ als maßgeblich (lekiwi vor den Teilen).
+DEVICE_TYPES: tuple[str, ...] = ("so101_follower", "so101_leader", "lekiwi", "lekiwi_arm", "lekiwi_base")
 
 
 def get_device_spec(device_type: str) -> DeviceSpec:

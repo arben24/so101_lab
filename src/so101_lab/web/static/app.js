@@ -19,6 +19,7 @@ const app = {
   ports: [],
   snapshots: {},
   setup: null, // Einrichtungsassistent (vom Server, für alle Tabs sichtbar)
+  remote: {}, // Geräte, die gerade ein anderer Rechner über /ws/bus benutzt (RemoteBackend)
   setupTypes: [],
   mockPort: "mock",
 };
@@ -164,6 +165,7 @@ function openLive() {
       const before = Object.keys(app.snapshots).sort().join();
       app.snapshots = msg.devices;
       app.setup = msg.setup ?? null;
+      app.remote = msg.remote ?? {};
       if (Object.keys(app.snapshots).sort().join() !== before) loadDevices().catch(() => {});
       render();
     }
@@ -209,7 +211,8 @@ function render() {
   const mine = connected && snap.controller && snap.controller === app.clientId;
   const other = connected && snap.controller && !mine;
 
-  $("connect").disabled = !device || connected;
+  const remote = device ? app.remote[device.name] : null;
+  $("connect").disabled = !device || connected || Boolean(remote);
   $("disconnect").disabled = !connected || other;
   $("device-select").disabled = false;
   $("port-select").disabled = connected;
@@ -221,7 +224,9 @@ function render() {
 
   const status = $("control-status");
   status.className = mine ? "mine" : other ? "other" : "";
-  status.textContent = !connected
+  status.textContent = remote
+    ? `Wird gerade über das Netz benutzt (von ${remote.peer}). Der Not-Aus wirkt trotzdem.`
+    : !connected
     ? "Kein Gerät verbunden."
     : mine
       ? `Du steuerst. Watchdog ${snap.watchdog_ms} ms, sicherer Zustand: ${snap.safe_state}.`

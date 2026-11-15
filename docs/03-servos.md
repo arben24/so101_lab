@@ -26,7 +26,7 @@ Vorzeichen trägt, steht in der Tabelle der Feetech-Dokumentation.
 
 Namen, Adressen und Größen stammen aus dem Treiber rustypot, den auch LeRobot benutzt. Einheiten und
 Bedeutung stammen aus der Feetech-Speichertabelle V3.7
-(`firmware/esp32/doku/sts3215/STS3215_Speichertabelle_V3.7.xls`). Die Tabelle wird im Code aus
+(`STS3215_Speichertabelle_V3.7.xls`, Herkunft und Link in `firmware/esp32/doku/sts3215/README.md`). Die Tabelle wird im Code aus
 rustypot erzeugt und nicht abgeschrieben (`so101-lab` prüft in den Tests, dass sie stimmt).
 
 | Adr. | Name | Bytes | Speicher | Zugriff | Einheit | Bedeutung |

@@ -29,7 +29,7 @@ from pathlib import Path
 
 from .arm import Arm
 from .backends.base import BackendError
-from .calibration import Calibration, MotorCalibration, calibration_dir, save_calibration
+from .calibration import Calibration, MotorCalibration, calibration_dir, load_calibration, save_calibration
 from .devices.spec import JointMode
 
 logger = logging.getLogger(__name__)
@@ -165,6 +165,7 @@ class CalibrationRun:
         path = self.target_path
         if path.exists():
             shutil.copy2(path, path.with_suffix(".json.bak"))  # alte Datei aufheben
+            calibration = _keep_other_parts(path, calibration)
         save_calibration(path, calibration)
         self.arm.calibration = calibration
         self.arm.calibration_path = path
@@ -215,3 +216,20 @@ class CalibrationRun:
                 for j in self.arm.joints
             ],
         }
+
+
+def _keep_other_parts(path: Path, calibration: Calibration) -> Calibration:
+    """Einträge anderer Motoren aus der vorhandenen Datei übernehmen.
+
+    LeKiwi: `lekiwi_arm` und `lekiwi_base` teilen sich die Datei mit `lekiwi`. Kalibriert man
+    nur den Arm, bleiben die Räder in der Datei stehen (und umgekehrt), sonst könnte LeRobot
+    die Datei für den ganzen LeKiwi nicht mehr benutzen. Reihenfolge wie in der alten Datei.
+    """
+    try:
+        old = load_calibration(path)
+    except (OSError, ValueError, TypeError) as exc:
+        logger.warning("Alte Kalibrierdatei %s nicht lesbar (%s), wird ersetzt.", path, exc)
+        return calibration
+    merged = {name: calibration.get(name, entry) for name, entry in old.items()}
+    merged.update({name: entry for name, entry in calibration.items() if name not in merged})
+    return merged

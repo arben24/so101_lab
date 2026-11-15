@@ -48,3 +48,20 @@ def test_every_doc_page_in_nav_exists():
     nav = (DOCS.parent / "mkdocs.yml").read_text(encoding="utf-8")
     for name in re.findall(r": ([\w-]+\.md)$", nav, flags=re.MULTILINE):
         assert (DOCS / name).exists(), name
+
+
+def test_api_reference_lists_every_route():
+    from fastapi.routing import APIRoute, APIWebSocketRoute
+
+    from so101_lab.web.app import LabServer, create_app
+
+    text = (DOCS / "anhang.md").read_text(encoding="utf-8")
+    documented = set(re.findall(r"^\| `((?:GET|POST|DELETE|WS) /[^`]+)` \|", text, re.MULTILINE))
+    routes = set()
+    for route in create_app(LabServer()).routes:
+        if isinstance(route, APIRoute) and not route.path.startswith("/api/docs"):
+            routes |= {f"{m} {route.path}" for m in route.methods - {"HEAD"}}
+        elif isinstance(route, APIWebSocketRoute):
+            routes.add(f"WS {route.path}")
+    assert routes - documented == set(), "in docs/anhang.md nicht beschrieben"
+    assert documented - routes == set(), "in docs/anhang.md, aber nicht in der App"

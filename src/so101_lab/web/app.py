@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 import logging
 import secrets
 import threading
@@ -37,6 +38,7 @@ from ..config import ConfigError, load_config
 from ..lab_dataset import DatasetError
 from ..safety import connect_arm
 from ..trajectories import TrajectoryError
+from .bus_server import DEFAULT_BUS_WATCHDOG_MS, RemoteBusSession
 from .session import ControlError, DeviceSession
 from .setup_session import MOCK_PORT, SIMULATED_PLUGS, SetupSession
 
@@ -58,12 +60,15 @@ class LabServer:
         token: str | None = None,
         watchdog_ms: int = 400,
         poll_hz: float = 30.0,
+        bus_watchdog_ms: int = DEFAULT_BUS_WATCHDOG_MS,
     ):
         self.config_path = config_path
         self.token = token or None
         self.watchdog_s = watchdog_ms / 1000
+        self.bus_watchdog_s = bus_watchdog_ms / 1000
         self.poll_hz = poll_hz
         self.sessions: dict[str, DeviceSession] = {}
+        self.remote_buses: dict[str, RemoteBusSession] = {}  # Geräte, die ein Laptop über /ws/bus benutzt
         self.clients: set[str] = set()  # client_ids mit offenem WebSocket
         self.setup: SetupSession | None = None  # Einrichtungsassistent (höchstens einer)
         self._lock = threading.Lock()
@@ -87,10 +92,17 @@ class LabServer:
                 busy = [s.name for s in self.sessions.values() if port and s.port == port]
                 if busy:
                     raise HTTPException(409, f"Port {port} wird schon von '{busy[0]}' benutzt.")
+                if port and (remote := self._remote_on_port(port)):
+                    raise HTTPException(
+                        409,
+                        f"Port {port} wird gerade über das Netz benutzt ({remote.name}, von {remote.peer}).",
+                    )
                 if port and self.setup is not None and self.setup.port == port:
                     raise HTTPException(
                         409, f"Port {port} gehört gerade dem Einrichtungsassistenten. Erst dort beenden."
                     )
+            if name in self.remote_buses:
+                raise HTTPException(409, f"Gerät '{name}' wird gerade über das Netz benutzt.")
             arm = connect_arm(name, port=port, config_path=self.config_path)
             session = DeviceSession(
                 name,
@@ -122,7 +134,51 @@ class LabServer:
         for session in list(self.sessions.values()):
             session.emergency_stop()
             stopped.append(session.name)
+        for bus in list(self.remote_buses.values()):
+            try:
+                bus.emergency_stop()
+            except Exception:
+                logger.exception("Not-Aus: Bus-Freigabe %s", bus.name)
+            stopped.append(bus.name)
         return stopped
+
+    # ------------------------------------------------------------ Bus-Freigabe (RemoteBackend)
+
+    def _remote_on_port(self, port: str) -> RemoteBusSession | None:
+        return next((b for b in self.remote_buses.values() if b.port == port), None)
+
+    def open_remote_bus(self, name: str, peer: str) -> RemoteBusSession:
+        cfg = self.config().device(name)
+        with self._lock:
+            if name in self.remote_buses:
+                other = self.remote_buses[name]
+                raise ControlError(f"'{name}' wird schon von {other.peer} über das Netz benutzt.")
+            if name in self.sessions:
+                raise ControlError(f"'{name}' ist hier in der Web-App verbunden. Erst dort trennen.")
+            port = cfg.port if cfg.backend == "usb" else None
+            if port:
+                busy = [s.name for s in self.sessions.values() if s.port == port]
+                if busy:
+                    raise ControlError(f"Port {port} ist hier mit '{busy[0]}' verbunden. Erst dort trennen.")
+                if (remote := self._remote_on_port(port)) is not None:
+                    raise ControlError(f"Port {port} wird schon von {remote.peer} benutzt ({remote.name}).")
+                if self.setup is not None and self.setup.port == port:
+                    raise ControlError(f"Port {port} gehört gerade dem Einrichtungsassistenten.")
+            bus = RemoteBusSession(cfg, peer, self.bus_watchdog_s)
+            self.remote_buses[name] = bus
+            logger.info("Bus-Freigabe: %s für %s geöffnet", name, peer)
+            return bus
+
+    def close_remote_bus(self, bus: RemoteBusSession, safe_reason: str | None) -> None:
+        """Freigabe beenden. `safe_reason` gesetzt = Verbindung unsauber weg: erst sicher zurücksetzen."""
+        with self._lock:
+            if self.remote_buses.get(bus.name) is not bus:
+                return  # schon geschlossen (z. B. beim Beenden des Servers)
+            del self.remote_buses[bus.name]
+        if safe_reason and bus.stopped_reason is None:
+            bus.safe_shutdown(safe_reason)
+        bus.close()
+        logger.info("Bus-Freigabe: %s geschlossen (%s)", bus.name, safe_reason or "ordentlich beendet")
 
     def client_gone(self, client_id: str) -> None:
         self.clients.discard(client_id)
@@ -145,6 +201,8 @@ class LabServer:
                     f"Port {port} ist mit dem Gerät '{busy[0]}' verbunden. Erst trennen: "
                     "Für die ID-Vergabe hängt nur ein einzelner Servo am Bus."
                 )
+            if (remote := self._remote_on_port(port)) is not None:
+                raise ControlError(f"Port {port} wird gerade über das Netz benutzt (von {remote.peer}).")
             self.setup = SetupSession.open(client_id, port, device_type)
             return self.setup
 
@@ -171,6 +229,8 @@ class LabServer:
         for name in list(self.sessions):
             session = self.sessions.pop(name)
             session.stop()
+        for bus in list(self.remote_buses.values()):
+            self.close_remote_bus(bus, "Server wird beendet")
         setup, self.setup = self.setup, None
         if setup is not None:
             setup.close()
@@ -179,6 +239,13 @@ class LabServer:
         if self.token is None:
             return True
         return presented is not None and secrets.compare_digest(presented.encode(), self.token.encode())
+
+
+async def _refuse(ws: WebSocket, message: str, code: int) -> None:
+    """Grund als Nachricht schicken (der Laptop zeigt ihn an), dann schließen."""
+    with contextlib.suppress(Exception):
+        await ws.send_json({"type": "error", "message": message})
+        await ws.close(code=code, reason=message[:120])
 
 
 def _token_from(headers, query) -> str | None:
@@ -239,7 +306,7 @@ class TeleopRequest(ClientRequest):
 
 
 class CalibrationImportRequest(ClientRequest):
-    device_type: str  # so101_follower | so101_leader | lekiwi (bestimmt den Ordner)
+    device_type: str  # so101_follower | so101_leader | lekiwi[_arm|_base] (bestimmt den Ordner)
     cal_id: str
     content: Any  # Inhalt der JSON-Datei
     overwrite: bool = False
@@ -261,7 +328,7 @@ class EpisodeStopRequest(ClientRequest):
 
 class SetupStartRequest(ClientRequest):
     port: str  # serieller Port oder "mock" (Simulation)
-    device_type: str  # so101_follower | so101_leader | lekiwi
+    device_type: str  # so101_follower | so101_leader | lekiwi | lekiwi_arm | lekiwi_base
 
 
 class SetupTargetRequest(ClientRequest):
@@ -352,6 +419,7 @@ def create_app(server: LabServer, docs_dir: Path | None = None) -> FastAPI:
                 "port": d.port,
                 "safe_state": d.safe_state,
                 "connected": d.name in server.sessions,
+                "remote": server.remote_buses[d.name].peer if d.name in server.remote_buses else None,
             }
             for d in server.config().devices.values()
         ]
@@ -751,6 +819,7 @@ def create_app(server: LabServer, docs_dir: Path | None = None) -> FastAPI:
                         "type": "state",
                         "devices": {n: s.snapshot() for n, s in list(server.sessions.items())},
                         "setup": setup.snapshot() if setup else None,
+                        "remote": {n: b.snapshot() for n, b in list(server.remote_buses.items())},
                     }
                 )
                 await asyncio.sleep(STATE_INTERVAL_S)
@@ -765,11 +834,67 @@ def create_app(server: LabServer, docs_dir: Path | None = None) -> FastAPI:
         except (WebSocketDisconnect, RuntimeError, ValueError):
             pass
         finally:
+            # Tab geschlossen oder Netz weg: Steuerrecht abgeben, sicherer Zustand. Als eigene
+            # Aufgabe gestartet, bevor irgendetwas gewartet wird: Wird dieser Handler selbst
+            # abgebrochen (Server-Ende, Test-Client), läuft das Aufräumen trotzdem zu Ende.
+            cleanup = asyncio.ensure_future(asyncio.to_thread(server.client_gone, client_id))
             sender.cancel()
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await sender
-            # Tab geschlossen oder Netz weg: Steuerrecht abgeben, sicherer Zustand.
-            await asyncio.to_thread(server.client_gone, client_id)
+            await asyncio.shield(cleanup)
+
+    @app.websocket("/ws/bus/{name}")
+    async def bus(ws: WebSocket, name: str) -> None:
+        """Bus-Freigabe für das RemoteBackend eines anderen Rechners (siehe web/bus_server.py)."""
+        await ws.accept()
+        peer = f"{ws.client.host}:{ws.client.port}" if ws.client else "unbekannt"
+        if not server.check_token(_token_from(ws.headers, ws.query_params)):
+            await _refuse(ws, "Token fehlt oder ist falsch.", 4401)
+            return
+        try:
+            bus = await asyncio.to_thread(server.open_remote_bus, name, peer)
+        except (ConfigError, ControlError, BackendError) as exc:
+            await _refuse(ws, str(exc), 4409)
+            return
+        await ws.send_json(bus.hello())
+        reason: str | None = "Verbindung getrennt"
+        try:
+            while True:
+                try:
+                    text = await asyncio.wait_for(ws.receive_text(), timeout=bus.watchdog_s)
+                except TimeoutError:
+                    reason = f"Watchdog: {round(bus.watchdog_s * 1000)} ms ohne Lebenszeichen"
+                    await _refuse(ws, reason, 4408)
+                    break
+                try:
+                    message = json.loads(text)
+                    request_id, op = message.get("id"), message.get("op")
+                except (ValueError, AttributeError):
+                    await ws.send_json(
+                        {"id": None, "ok": False, "error": "BackendError", "message": "Kein JSON."}
+                    )
+                    continue
+                if op == "close":
+                    reason = None  # ordentlich: der Laptop hat schon selbst zurückgesetzt
+                    await ws.send_json({"id": request_id, "ok": True, "result": None})
+                    await ws.close()
+                    break
+                if bus.stopped_reason:
+                    reason = bus.stopped_reason
+                    await _refuse(ws, bus.stopped_reason, 4410)
+                    break
+                if op == "heartbeat":
+                    await ws.send_json({"id": request_id, "ok": True, "result": None})
+                    continue
+                reply = await asyncio.to_thread(bus.call, request_id, op, message.get("args") or {})
+                await ws.send_json(reply)
+        except (WebSocketDisconnect, RuntimeError):
+            pass
+        finally:
+            # wie bei /ws: auch bei Abbruch dieses Handlers sicher zurücksetzen
+            await asyncio.shield(
+                asyncio.ensure_future(asyncio.to_thread(server.close_remote_bus, bus, reason))
+            )
 
     # --- Seiten -------------------------------------------------------------------
 

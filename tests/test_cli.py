@@ -57,5 +57,18 @@ def test_example_config_is_valid_and_has_required_keys():
     data = tomllib.loads((ROOT / "config" / "arms.toml").read_text(encoding="utf-8"))
     for device in data["device"]:
         assert {"name", "type", "backend", "calibration_id"} <= device.keys()
-        assert device["type"] in {"so101_follower", "so101_leader", "lekiwi"}
+        assert device["type"] in {"so101_follower", "so101_leader", "lekiwi", "lekiwi_arm", "lekiwi_base"}
         assert device["backend"] in {"usb", "remote", "esp32", "mock"}
+
+
+def test_service_unit(capsys, tmp_path):
+    from so101_lab.service import unit_text
+
+    text = unit_text(user="kiwi", root=tmp_path, uv="/opt/uv", port=8001)
+    assert "User=kiwi" in text and f"WorkingDirectory={tmp_path.resolve()}" in text
+    assert "ExecStart=/opt/uv run --no-sync so101-lab web --host 0.0.0.0 --port 8001 --no-docs" in text
+    assert "EnvironmentFile=/etc/so101-lab.env" in text and "SO101_LAB_TOKEN=<geheim>" in text
+    assert "SupplementaryGroups=dialout video" in text
+    assert "--no-docs" not in unit_text(user="kiwi", root=tmp_path, uv="/opt/uv", docs=True)
+    assert main(["service"]) == 0
+    assert "[Service]" in capsys.readouterr().out
