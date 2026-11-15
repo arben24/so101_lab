@@ -64,5 +64,8 @@ def create_backend(cfg: DeviceConfig, port: str | None = None) -> ArmBackend:
             expected_ids=get_device_spec(cfg.type).ids,
         )
     if cfg.backend == "esp32":
-        raise NotSupportedError("Das ESP32-Backend folgt in Phase 8.")
+        from .esp32 import Esp32Backend
+
+        assert cfg.address  # vom Konfigurations-Lader geprüft
+        return Esp32Backend(cfg.address, get_device_spec(cfg.type))
     raise BackendError(f"Unbekanntes Backend '{cfg.backend}'.")

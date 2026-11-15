@@ -79,7 +79,7 @@ calibration_id = "lekiwi_1"
 name = "esp_kiwi"
 type = "lekiwi"
 backend = "esp32"
-address = "192.168.178.82"  # Name oder IP, für die Simulation "127.0.0.1:4210"
+address = "lekiwi-test.local"  # Name oder IP, für die Simulation "127.0.0.1:4210"
 calibration_id = "lekiwi_1"
 
 [[device]]

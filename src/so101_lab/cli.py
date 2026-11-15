@@ -8,6 +8,7 @@ Unterbefehle:
   state   liest den Zustand aller Gelenke eines Geräts (nur lesend)
   web     startet die Web-App samt Doku (und Bus-Freigabe für andere Rechner)
   service gibt eine systemd-Unit für den Raspberry Pi aus (Kapitel 06)
+  esp32   ESP32-Funkknoten suchen oder einen nachgebauten Knoten starten (Kapitel 07)
 
 Der Port wird nicht über udev-Regeln festgelegt, sondern bei jedem Aufruf gewählt:
 mit --port, aus config/arms.toml oder interaktiv aus der Liste.
@@ -251,6 +252,39 @@ def cmd_service(args) -> int:
     return 0
 
 
+def cmd_esp32(args) -> int:
+    if args.esp32_command == "suchen":
+        from .backends.esp32 import find_nodes
+
+        nodes = find_nodes(args.ip or (), wait_s=args.dauer, broadcast=not args.ohne_broadcast)
+        if not nodes:
+            print("Kein ESP32-Knoten gefunden. Gleiches WLAN? Mit --ip <adresse> gezielt fragen.")
+            return 1
+        for info, sender in nodes:
+            servos = ", ".join(f"{i}{'T' if m else 'P'}" for i, m in info.servos)
+            print(
+                f"{info.name:<16} {info.ip:<15} Profil {info.profile:<13} {info.mode:<11} "
+                f"Firmware {info.firmware}  Watchdog {info.watchdog_ms} ms  RSSI {info.rssi} dBm  [{sender}]"
+            )
+            print(f"  Servos (P Position, T Tempo): {servos}")
+        print('\nIn arms.toml: backend = "esp32", address = "<IP oder Name>.local"')
+        return 0
+    from .esp32_sim import SimNode
+
+    node = SimNode(profile=args.profil, host=args.host, port=args.port, watchdog_ms=args.watchdog_ms).start()
+    print(f"ESP32-Simulation, Profil {node.profile}, auf {node.host}:{node.port}. Strg+C beendet.")
+    print(f'In arms.toml: backend = "esp32", address = "{node.host}:{node.port}"', flush=True)
+    seen = 0
+    try:
+        while True:
+            time.sleep(0.2)
+            for line in node.log[seen:]:
+                print(f"[knoten] {line}", flush=True)
+            seen = len(node.log)
+    finally:
+        node.stop()
+
+
 # ------------------------------------------------------------------ Parser
 
 
@@ -300,6 +334,20 @@ def build_parser() -> argparse.ArgumentParser:
     web.add_argument("--no-docs", action="store_true", help="Doku nicht bauen und nicht einbinden")
     web.add_argument("--config", default=None, help="Pfad zu arms.toml")
 
+    esp32 = sub.add_parser("esp32", help="ESP32-Funkknoten suchen oder simulieren")
+    esp32_sub = esp32.add_subparsers(dest="esp32_command", required=True, metavar="AKTION")
+    find = esp32_sub.add_parser("suchen", help="Knoten im WLAN suchen (Broadcast und Baken)")
+    find.add_argument(
+        "--ip", action="append", help="Knoten gezielt fragen (auch mehrfach), z. B. 192.168.0.42"
+    )
+    find.add_argument("--dauer", type=float, default=1.5, help="Wartezeit in s (Standard 1,5)")
+    find.add_argument("--ohne-broadcast", action="store_true", help="nur die Adressen aus --ip fragen")
+    sim = esp32_sub.add_parser("sim", help="nachgebauten Knoten am eigenen Rechner starten")
+    sim.add_argument("--profil", default="lekiwi", choices=["lekiwi", "so101", "so101_leader"])
+    sim.add_argument("--host", default="127.0.0.1", help="Adresse (Standard nur dieser Rechner)")
+    sim.add_argument("--port", type=int, default=4210, help="UDP-Port (Standard 4210 wie die Firmware)")
+    sim.add_argument("--watchdog-ms", type=int, default=300, help="Watchdog in ms (Standard 300)")
+
     service = sub.add_parser("service", help="systemd-Unit für den Raspberry Pi ausgeben")
     service.add_argument("--port", type=int, default=8000, help="TCP-Port der Web-App")
     service.add_argument("--docs", action="store_true", help="Doku beim Start bauen (langsamer)")
@@ -323,6 +371,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "state": cmd_state,
         "web": cmd_web,
         "service": cmd_service,
+        "esp32": cmd_esp32,
     }
     try:
         return commands[args.command](args)

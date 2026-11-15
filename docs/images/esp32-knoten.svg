@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 360" role="img" aria-labelledby="t d">
+  <title id="t">Weg eines Befehls über den ESP32-Knoten</title>
+  <desc id="d">Am Laptop schreibt das Esp32Backend Sollwerte in eine Tabelle und schickt sie als BEFEHL per UDP, alle 100 ms erneut. Der Knoten legt sie in seiner Sollwerttabelle ab. Eine eigene 50-Hz-Schleife schreibt daraus Ziele und Drehmoment in die Servos und liest Istwerte, die als ZUSTAND zurückgehen. Registerzugriffe laufen einzeln, einer je Zyklus. Kommt 300 ms kein BEFEHL, stoppt der Knoten die Räder und hält den Arm.</desc>
+  <defs>
+    <marker id="pf" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#555"/>
+    </marker>
+  </defs>
+  <style>
+    text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; fill: #222; }
+    .titel { font-size: 14px; font-weight: 700; }
+    .zeile { font-size: 13px; }
+    .klein { font-size: 12px; fill: #444; }
+    .code { font-family: ui-monospace, "DejaVu Sans Mono", Consolas, monospace; font-size: 12px; fill: #333; }
+    .rahmen { fill: #fafafa; stroke: #9e9e9e; stroke-width: 1.2; }
+    .teil { fill: #fff; stroke: #bdbdbd; }
+    .tabelle { fill: #e3ecfd; stroke: #3b6fd8; stroke-width: 1.5; }
+    .wache { fill: #fdecea; stroke: #c0392b; stroke-width: 1.5; }
+    .servo { fill: #eeeeee; stroke: #757575; }
+    .netz { stroke: #555; stroke-width: 2; stroke-dasharray: 6 4; fill: none; }
+    .kabel { stroke: #555; stroke-width: 2; fill: none; }
+  </style>
+
+  <!-- Laptop -->
+  <rect class="rahmen" x="10" y="20" width="250" height="250" rx="8"/>
+  <text class="titel" x="26" y="44">Laptop</text>
+  <rect class="teil" x="26" y="56" width="218" height="40" rx="5"/>
+  <text class="zeile" x="38" y="81">Web-App / Skript → Arm</text>
+  <rect class="tabelle" x="26" y="106" width="218" height="66" rx="5"/>
+  <text class="zeile" x="38" y="127">Esp32Backend</text>
+  <text class="klein" x="38" y="145">Spiegel der Sollwerttabelle</text>
+  <text class="klein" x="38" y="162">schickt immer alle Servos</text>
+  <rect class="teil" x="26" y="182" width="218" height="74" rx="5"/>
+  <text class="klein" x="38" y="203">Lebenszeichen: alle 100 ms</text>
+  <text class="klein" x="38" y="221">BEFEHL. Lücke über Watchdog:</text>
+  <text class="klein" x="38" y="239">nicht weitermachen, neu verbinden</text>
+
+  <!-- Netz -->
+  <line class="netz" x1="262" y1="120" x2="444" y2="120" marker-end="url(#pf)"/>
+  <text class="code" x="276" y="104">BEFEHL (Tabelle)</text>
+  <text class="code" x="276" y="140">REG_LESEN/SCHREIBEN</text>
+  <line class="netz" x1="444" y1="190" x2="262" y2="190" marker-end="url(#pf)"/>
+  <text class="code" x="276" y="176">ZUSTAND (Abbild)</text>
+  <text class="code" x="276" y="210">REG_ANTWORT</text>
+  <text class="klein" x="300" y="246">WLAN, UDP Port 4210</text>
+  <text class="klein" x="300" y="262">keine Anmeldung</text>
+
+  <!-- Knoten -->
+  <rect class="rahmen" x="446" y="20" width="324" height="250" rx="8"/>
+  <text class="titel" x="462" y="44">ESP32-Knoten (Profil z. B. lekiwi)</text>
+  <rect class="tabelle" x="462" y="56" width="292" height="50" rx="5"/>
+  <text class="zeile" x="474" y="77">Sollwerttabelle: je Servo</text>
+  <text class="klein" x="474" y="95">Drehmoment an/aus, Ziel bzw. Radtempo</text>
+  <rect class="teil" x="462" y="116" width="292" height="66" rx="5"/>
+  <text class="zeile" x="474" y="137">50-Hz-Schleife (einziger Bus-Nutzer)</text>
+  <text class="klein" x="474" y="155">Ziele, Drehmoment schreiben, Istwerte lesen,</text>
+  <text class="klein" x="474" y="172">höchstens ein Registerzugriff je 20 ms</text>
+  <rect class="wache" x="462" y="192" width="292" height="64" rx="5"/>
+  <text class="zeile" x="474" y="213">Watchdog 300 ms ohne BEFEHL</text>
+  <text class="klein" x="474" y="231">Räder stopp, Arm hält die Stellung,</text>
+  <text class="klein" x="474" y="248">Drehmoment bleibt wie es ist</text>
+
+  <line class="kabel" x1="608" y1="270" x2="608" y2="304" marker-end="url(#pf)"/>
+  <text class="klein" x="620" y="292">UART, fest 1 Mbit/s</text>
+  <rect class="servo" x="446" y="306" width="324" height="40" rx="8"/>
+  <text class="zeile" x="608" y="331" text-anchor="middle">Servos (IDs laut Profil)</text>
+</svg>

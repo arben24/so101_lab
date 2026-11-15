@@ -1,7 +1,7 @@
 # so101-lab
 
 Lehr-Repository für den SO-101-Roboterarm und die LeKiwi-Plattform (Hochschule, Elektrotechnik/Robotik).
-Stand und Planung: [PLAN.md](PLAN.md). Die Doku (Kapitel 00–06) liegt in `docs/`.
+Stand und Planung: [PLAN.md](PLAN.md). Die Doku (Kapitel 00–07) liegt in `docs/`.
 
 ```bash
 uv sync                    # Python 3.12 und alle Pakete (CPU-torch)
@@ -11,6 +11,7 @@ uv run so101-lab scan      # Servos am Bus suchen
 uv run so101-lab cameras   # Kameras suchen, Eintrag für arms.toml vorschlagen
 uv run so101-lab web       # Web-App starten, dann http://localhost:8000 im Browser öffnen
 uv run so101-lab service   # systemd-Unit für den Raspberry Pi ausgeben (Kapitel 06)
+uv run so101-lab esp32 suchen   # ESP32-Funkknoten im WLAN finden (Kapitel 07), esp32 sim: ohne Hardware
 uv run mkdocs serve        # Doku lokal
 uv run pytest              # Tests (ohne Hardware)
 uv run ruff check . && uv run ruff format --check .

@@ -5,7 +5,7 @@ Schritten 0…4095, Tempo in Schritt/s). Gelenknamen, Kalibrierung und Grenzen l
 Ebene höher in `so101_lab.arm.Arm`.
 
 Implementierungen: UsbBackend (lokal per USB), MockBackend (simuliert), RemoteBackend
-(Bus an einem anderen Rechner, z. B. Raspberry Pi) und später Esp32Backend (Phase 8).
+(Bus an einem anderen Rechner, z. B. Raspberry Pi) und Esp32Backend (ESP32-Funkknoten).
 
 Schreibzugriffe:
 - `write_register` schreibt nur RAM-Register. EEPROM-Register lehnt es ab.
