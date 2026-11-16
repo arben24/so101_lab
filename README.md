@@ -1,7 +1,7 @@
 # so101-lab
 
 Lehr-Repository für den SO-101-Roboterarm und die LeKiwi-Plattform (Hochschule, Elektrotechnik/Robotik).
-Stand und Planung: [PLAN.md](PLAN.md). Die Doku (Kapitel 00–07) liegt in `docs/`.
+Stand und Planung: [PLAN.md](PLAN.md). Die Doku (Kapitel 00–10 und Übungen) liegt in `docs/`, die Übungen in `exercises/`.
 
 ```bash
 uv sync                    # Python 3.12 und alle Pakete (CPU-torch)
@@ -28,4 +28,4 @@ uv run scripts/03_move_servo.py --gelenk wrist_flex
 Weitere: `04_write_param.py`, `05_set_servo_id.py`, `06_record_trajectory.py`, `07_replay_trajectory.py`,
 `09_drive_base.py` (LeKiwi-Basis fahren, ohne Hardware mit `--device demo_kiwi`).
 
-Für Training mit GPU: `uv sync --no-group cpu --group cuda`.
+Für Training (Übung 7): `uv sync --group training`, mit GPU `uv sync --no-group cpu --group cuda --group training`.

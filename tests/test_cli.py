@@ -72,3 +72,15 @@ def test_service_unit(capsys, tmp_path):
     assert "--no-docs" not in unit_text(user="kiwi", root=tmp_path, uv="/opt/uv", docs=True)
     assert main(["service"]) == 0
     assert "[Service]" in capsys.readouterr().out
+
+
+def test_doctor_warns_about_foreign_python_packages_in_pythonpath(monkeypatch):
+    ros = "/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages"
+    assert doctor.foreign_pythonpath_entries(f"{ros}:/home/x/eigener_code") == ros.split(":")
+    assert doctor.foreign_pythonpath_entries("") == []
+    monkeypatch.setenv("PYTHONPATH", ros)
+    (result,) = doctor.check_pythonpath()
+    assert result.status == doctor.WARN and "unset PYTHONPATH" in result.hint
+    monkeypatch.delenv("PYTHONPATH")
+    (result,) = doctor.check_pythonpath()
+    assert result.status == doctor.OK

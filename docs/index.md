@@ -39,11 +39,11 @@ Schritt 5 fragt vor der Bewegung nach einer Bestätigung. Das Gelenk fährt nur 
 | Was | Wo | Wofür |
 |---|---|---|
 | Lernskripte | `scripts/01…07`, `09` | kurze, kommentierte Programme, jedes für sich lauffähig |
-| Befehl `so101-lab` | `doctor`, `ports`, `scan`, `state`, `web` | Umgebung prüfen, Servos suchen, Zustand lesen, Web-App |
+| Übungen | `exercises/` | Vorlagen mit Lücken und Musterlösungen (Kapitel [Übungen](uebungen.md)) |
+| Befehl `so101-lab` | `doctor`, `ports`, `scan`, `cameras`, `state`, `web`, `esp32`, `service` | Umgebung prüfen, Servos und Kameras suchen, Zustand lesen, Web-App, ESP32-Knoten, Pi-Dienst |
 | Konfiguration | `config/arms.toml` | welche Geräte es gibt, Port, Kalibrierung, Bewegungsgrenzen |
-| Kalibrierdateien | alle Kalibrierdateien ansehen, löschen (mit Backup), wiederherstellen, importieren; Abgleich mit den Servos |
-| Aufnahmen | `recordings/` | Bewegungen als CSV und JSON (nicht im Git) |
-| Kalibrierung | `calibration/` | Kalibrierdateien je Arm im LeRobot-Format |
+| Kalibrierung | `calibration/` | Kalibrierdateien je Arm im LeRobot-Format (in der Web-App verwaltbar, Reiter „Kalibrierdateien“) |
+| Aufnahmen | `recordings/` | Bewegungen als CSV und JSON, LeRobot-Datasets (nicht im Git) |
 | ESP32-Firmware | `firmware/esp32/` | Referenz für die Funkanbindung (Kapitel 07) |
 
 ## Die Web-App
@@ -73,8 +73,10 @@ Reiter der Web-App:
 |---|---|
 | Status | alle Gelenke live, Meldungen |
 | Einzelservo | ein Gelenk: Live-Werte, Tempo- und Beschleunigungsgrenze, Schieberegler, Drehmoment |
+| Fahren | LeKiwi-Basis mit den Tasten W/A/S/D/Z/X fahren, Episoden aufnehmen (Kapitel 08) |
 | Register | alle Register eines Servos lesen, freigegebene schreiben (EEPROM nur mit Bestätigung) |
 | Kalibrierung | geführte Kalibrierung mit Anzeige, wo die Datei gespeichert wird |
+| Kalibrierdateien | Dateien ansehen, löschen (mit Backup), wiederherstellen, importieren; Abgleich mit den Servos |
 | Aufnahmen | von Hand aufnehmen, Teleoperation Leader → Follower, Bibliothek mit Kurven, Abspielen |
 | Datensätze | Kamera-Vorschau und -Suche, Episoden als LeRobot-Dataset aufnehmen, Datasets verwalten |
 | Einrichtung | Assistent für neue Servos: ID und Baudrate vergeben, prüfen, protokollieren (genau ein Servo am Bus) |
@@ -104,6 +106,11 @@ LeRobot-Werkzeug dasselbe „in fertig“ macht.
 2. [Einrichtung](02-einrichtung.md): Installation, Ports, Servo-IDs, Kalibrierung.
 3. [Servos verstehen](03-servos.md): Register, Positionswerte, EEPROM und RAM, Regelparameter.
 4. [Bewegungen](04-bewegungen.md): aufzeichnen, speichern, abspielen.
+5. [Datensätze](05-datensaetze.md): Aufnahmen in der Web-App, Kameras, LeRobot-Datasets, Training.
+6. [Raspberry Pi](06-raspberry-pi.md) und 7. [ESP32](07-esp32.md): der Arm über das Netz.
+8. [LeKiwi](08-lekiwi.md): die fahrbare Basis, Kinematik, Fahren, Aufnahme mit Basis.
+9. [Architektur](09-architektur.md): wie der Code aufgebaut ist und welche Sicherheitsschichten es gibt.
+10. [Fehlersuche](10-fehlersuche.md): was am häufigsten schiefgeht.
+11. [Übungen](uebungen.md): sieben Aufgaben mit Vorlage und Musterlösung.
 
-Die weiteren Kapitel (Datensätze, Raspberry Pi, ESP32, LeKiwi, Architektur, Fehlersuche) und die
-Übungen werden nach und nach ergänzt.
+Eine Übersicht, was am echten Gerät geprüft ist und was nur in der Simulation, steht in `PLAN.md`.

@@ -43,6 +43,30 @@ def check_python() -> list[Result]:
     ]
 
 
+def foreign_pythonpath_entries(pythonpath: str | None = None) -> list[str]:
+    """Einträge im PYTHONPATH, die fremde Python-Pakete mitbringen (site-packages, dist-packages, ROS)."""
+    value = os.environ.get("PYTHONPATH", "") if pythonpath is None else pythonpath
+    entries = [e for e in value.split(os.pathsep) if e]
+    return [
+        e for e in entries if e.rstrip("/").endswith(("site-packages", "dist-packages")) or "/opt/ros/" in e
+    ]
+
+
+def check_pythonpath() -> list[Result]:
+    """Fremde Pakete im PYTHONPATH (z. B. ROS 2) werden von Python und pytest mitgeladen."""
+    foreign = foreign_pythonpath_entries()
+    if not foreign:
+        return [Result(OK, "PYTHONPATH enthält keine fremden Python-Pakete")]
+    return [
+        Result(
+            WARN,
+            f"PYTHONPATH enthält fremde Pakete: {', '.join(foreign)}",
+            "Python und pytest laden sie mit (bei ROS 2 bricht pytest mit „No module named 'lark'“ ab). "
+            "Ohne sie starten: `env -u PYTHONPATH uv run …` oder im Terminal `unset PYTHONPATH`.",
+        )
+    ]
+
+
 def check_lerobot() -> list[Result]:
     try:
         version = md.version("lerobot")
@@ -174,6 +198,7 @@ def check_config(config_path: str | None) -> list[Result]:
 
 CHECKS: list[tuple[str, Callable[..., list[Result]]]] = [
     ("System", check_python),
+    ("", check_pythonpath),
     ("LeRobot und Pakete", check_lerobot),
     ("", check_packages),
     ("", check_compiler),

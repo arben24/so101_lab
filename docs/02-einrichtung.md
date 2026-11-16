@@ -18,8 +18,9 @@ uv run so101-lab doctor
 - `uv sync` lädt beim ersten Mal rund zwei Gigabyte (LeRobot 0.7.0 und PyTorch). Dafür braucht es
   einmal Internet. Danach läuft alles **offline**.
 - Standard ist PyTorch als **CPU-Variante**. Sie genügt für Ansteuerung, Kalibrierung, Aufnahme und
-  Abspielen. Nur für das Training eigener Modelle (Übung 7) gibt es die CUDA-Variante:
-  `uv sync --no-group cpu --group cuda`.
+  Abspielen. Nur für das Training eigener Modelle (Übung 7) braucht es zusätzlich die Gruppe `training`
+  (`uv sync --group training`, bringt `accelerate` mit) und am besten die CUDA-Variante von PyTorch:
+  `uv sync --no-group cpu --group cuda --group training`.
 - Unter **Linux** wird das Paket `evdev` beim Installieren kompiliert. Fehlt der Compiler:
   `sudo apt install build-essential python3-dev`.
 

@@ -6,6 +6,8 @@ __pycache__/
 site/
 recordings/*
 !recordings/.gitkeep
+# Ausgaben von lerobot-train (Übung 7): Checkpoints sind mehrere hundert MB groß
+outputs/
 calibration/**/*.json.bak
 
 # Hersteller-Dokumente (Urheberrecht Feetech, nicht weitergeben), Links in firmware/esp32/doku/sts3215/README.md

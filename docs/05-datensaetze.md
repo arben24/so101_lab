@@ -233,3 +233,43 @@ recordings/datasets/<name>/
     Wichtig: `lerobot-record` lädt in der Standardeinstellung zum Hugging Face Hub hoch. Im Labor
     immer `--dataset.push_to_hub=false` und ein lokales `--dataset.root` angeben. Außerdem schreibt
     LeRobot beim Verbinden Regelwerte ins EEPROM (Kapitel [Einrichtung](02-einrichtung.md)).
+
+## 9. Training (Übung 7)
+
+Mit einem Dataset lässt sich eine **Policy** trainieren: ein neuronales Netz, das aus Kamerabild und
+Gelenkwerten die nächsten Aktionen vorhersagt. LeRobot bringt dafür `lerobot-train` mit. Hier mit **ACT**
+(Action Chunking Transformer), alles lokal und ohne Hugging Face Hub.
+
+```bash
+uv sync --group training          # einmal: bringt accelerate und trackio mit (nicht Teil der Standardinstallation)
+uv run exercises/loesungen/uebung_07_dataset_training.py --name wuerfel_greifen   # gibt den Befehl aus
+```
+
+Der Befehl, den die Übung ausgibt (gekürzt auf das Wesentliche):
+
+```bash
+HF_HUB_OFFLINE=1 uv run --group training lerobot-train \
+  --dataset.repo_id=lab/wuerfel_greifen --dataset.root=recordings/datasets/wuerfel_greifen \
+  --policy.type=act --policy.device=cpu --policy.push_to_hub=false \
+  --output_dir=outputs/train/wuerfel_greifen --job_name=act_wuerfel_greifen --steps=2000 --batch_size=8
+```
+
+- `--policy.push_to_hub=false` ist Pflicht: Sonst will LeRobot das Modell hochladen.
+- Das Ergebnis liegt in `outputs/train/<name>/checkpoints/<schritt>/pretrained_model/` (`last` zeigt auf den
+  letzten Stand). Ein Checkpoint war im Test rund 590 MB groß (ACT mit 52 Millionen Parametern, davon etwa
+  200 MB das Modell und der Rest der Zustand zum Weitertrainieren), `outputs/` steht deshalb in der `.gitignore`.
+- `--policy.device` ist `cpu`, `cuda` oder `mps`. Training lohnt sich nur mit GPU.
+
+!!! warning "Was hier geprüft ist und was nicht"
+    **Geprüft** (16.11.2026, Linux, CPU, LeRobot 0.7.0): Ein Lauf mit 3 Schritten, Batchgröße 2 und einem
+    synthetischen Dataset (4 Episoden, 96×72-Bilder) läuft durch und schreibt einen Checkpoint. Es waren
+    etwa 4 Schritte je Sekunde. **Nicht geprüft:** ein echtes Training mit Aufnahmen vom Arm, die Dauer
+    mit 2000 Schritten und Batchgröße 8, die Qualität der Policy und das Ausführen der Policy am Arm.
+    Mit nur wenigen Episoden lernt ACT nichts Brauchbares (LeRobot nennt 50 als Standard).
+
+!!! note "Warnung zu `torchcodec`"
+    Beim Laden von Videos meldet LeRobot *„torchcodec is installed but cannot decode videos … Falling back
+    to pyav“*. Das ist **harmlos**: LeRobot decodiert dann mit `pyav`, nur etwas langsamer. Die Ursache ist
+    nicht FFmpeg, sondern dass das `torchcodec`-Paket von PyPI für CUDA gebaut ist, hier aber die
+    CPU-Variante von PyTorch läuft (`libcudart.so.13` fehlt). Mit `uv sync --no-group cpu --group cuda` auf
+    einem Rechner mit GPU passt es.

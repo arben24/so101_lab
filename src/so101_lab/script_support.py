@@ -56,6 +56,10 @@ def run_script(main: Callable[[], int]) -> None:
     except (CliError, BackendError, ConfigError, TrajectoryError) as exc:
         print(f"Fehler: {exc}", file=sys.stderr)
         code = 1
+    except NotImplementedError as exc:
+        # Übungsvorlagen in exercises/: Hier fehlt noch dein Code.
+        print(f"Noch zu lösen: {exc}", file=sys.stderr)
+        code = 2
     except KeyboardInterrupt:
         print("\nAbgebrochen.", file=sys.stderr)
         code = 130
