@@ -142,6 +142,21 @@
           <div class="gauges" id="drive-measured"></div>
         </div>
       </div>
+      <h2 class="sub">Arm und Aufnahme während der Fahrt</h2>
+      <p class="status-line" id="drive-teleop"></p>
+      <p class="status-line" id="drive-ds"></p>
+      <div class="row">
+        <button id="drive-ep-start" class="warn">Episode starten</button>
+        <button id="drive-ep-save">Episode speichern</button>
+        <button id="drive-ep-discard" class="secondary">Episode verwerfen</button>
+      </div>
+      <p class="hint">
+        Wie bei LeRobots LeKiwi-Aufnahme: Der Leader führt den Arm, die Tasten fahren die Basis.
+        Teleoperation im Reiter „Aufnahmen“ starten (Gerät <code>lekiwi</code>), Dataset im Reiter „Datensätze“ öffnen.
+        Episoden lassen sich dann hier starten und speichern, ohne den Reiter zu wechseln (ein Wechsel hält die Basis an).
+        Mit Basis speichert das Dataset zusätzlich <code>x.vel</code>, <code>y.vel</code>, <code>theta.vel</code>:
+        Aktion = Fahrbefehl, Beobachtung = gemessen.
+      </p>
       <p class="hint">
         Tasten wie bei LeRobot: W/S vor und zurück, A/D seitwärts, Z/X drehen, R/F Tempostufe, Leertaste anhalten.
         Sie wirken nur, wenn dieser Reiter offen ist und du steuerst. Koordinaten: x vorwärts, y nach links, Drehung

@@ -183,6 +183,10 @@ Vorführung wäre ein schlechtes Trainingsbeispiel. Das Dataset bleibt offen.
 
 Ohne Kalibrierung geht es nicht: Das Dataset speichert Grad und Prozent wie LeRobot, nicht Rohwerte.
 
+Bei der **LeKiwi** mit Basis kommen `x.vel`, `y.vel` und `theta.vel` dazu (Aktion = Fahrbefehl), wie bei
+LeRobot. Wie man Leader-Arm und Fahren zusammen aufnimmt, steht in Kapitel [LeKiwi](08-lekiwi.md),
+Abschnitt 6.
+
 !!! note "Nur lokal"
     Gespeichert wird unter `recordings/datasets/<name>/` (nicht im Git). Die Web-App lädt nie etwas
     hoch. Die `repo_id` ist `lab/<name>`: nur ein Name, es gibt keinen Hub-Nutzer.

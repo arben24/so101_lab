@@ -618,7 +618,30 @@ function setGauges(el, items) {
   }
 }
 
+function renderDriveExtras(snap, mine) {
+  const ds = snap?.dataset;
+  const ep = ds?.episode;
+  $("drive-teleop").textContent = !snap
+    ? ""
+    : snap.teleop
+      ? `Arm folgt dem Leader '${snap.teleop.leader}' (${snap.teleop.phase === "anfahrt" ? "Anfahrt" : "folgt"}).`
+      : snap.joints?.some((j) => j.mode === "position")
+        ? "Arm: keine Teleoperation (starten im Reiter „Aufnahmen“)."
+        : "Nur Basis (kein Arm an diesem Gerät).";
+  $("drive-ds").className = ep ? "status-line live" : "status-line";
+  $("drive-ds").textContent = !snap
+    ? ""
+    : !ds
+      ? "Kein Dataset geöffnet (Reiter „Datensätze“)."
+      : `Dataset '${ds.name}'${ds.base ? " mit Basis" : " ohne Basis"}, ${ds.saved_episodes} Episoden gespeichert.` +
+        (ep ? ` ● Episode ${ep.index}: ${fmt(ep.duration_s, 1)} s, ${ep.frames} Frames` : "");
+  $("drive-ep-start").disabled = !mine || !ds || Boolean(ep);
+  $("drive-ep-save").disabled = !mine || !ep;
+  $("drive-ep-discard").disabled = !mine || !ep;
+}
+
 function renderDrive(snap, mine) {
+  renderDriveExtras(snap, mine);
   const d = snap?.drive;
   $("drive-nobase").hidden = !snap || Boolean(d);
   for (const b of $("drive-pad").querySelectorAll("button")) {
@@ -670,6 +693,14 @@ function bindDrive() {
     }
   }
   $("drive-stop").onclick = driveStop;
+  // Episoden wie im Reiter „Datensätze“. Danach den Fokus abgeben, sonst löst die Leertaste
+  // (= anhalten) den Knopf noch einmal aus.
+  for (const [id, target] of [["drive-ep-start", "ep-start"], ["drive-ep-save", "ep-save"], ["drive-ep-discard", "ep-discard"]]) {
+    $(id).addEventListener("click", (e) => {
+      e.currentTarget.blur();
+      $(target).click();
+    });
+  }
   $("drive-level").onchange = () => (drive.level = Number($("drive-level").value));
   document.addEventListener("keydown", (e) => {
     if (!driveTabOpen() || e.ctrlKey || e.altKey || e.metaKey) return;
@@ -688,7 +719,10 @@ function bindDrive() {
       render();
     }
   });
-  document.addEventListener("keyup", (e) => drive.held.delete(e.key.toLowerCase()));
+  document.addEventListener("keyup", (e) => {
+    drive.held.delete(e.key.toLowerCase());
+    if (e.key === " " && driveTabOpen() && !e.target.closest("input, select, textarea")) e.preventDefault();
+  });
   // Fokus weg (anderes Fenster, Tab gewechselt): nichts mehr gedrückt halten
   window.addEventListener("blur", driveStop);
   document.addEventListener("visibilitychange", () => document.hidden && driveStop());

@@ -7,7 +7,8 @@ Basis fährt: vom Fahrbefehl „vorwärts mit 0,1 m/s“ bis zum Tempo jedes ein
 !!! warning "Stand"
     Das Fahren ist gegen simulierte Servos und den nachgebauten ESP32-Knoten getestet, die Kinematik
     rechnet nachweislich genau wie LeRobot (ein Test vergleicht beide). **An einer echten LeKiwi ist das Fahren
-    mit so101-lab noch nicht geprüft.** Deshalb gilt besonders: erst aufgebockt fahren (Abschnitt 4).
+    mit so101-lab noch nicht geprüft**, ebenso die Aufnahme mit Basis (Abschnitt 6). Deshalb gilt besonders:
+    erst aufgebockt fahren (Abschnitt 4).
 
 ## 1. Eine Hardware, drei Gerätetypen
 
@@ -164,7 +165,40 @@ rechts      30°    +0.152 m/s    +174 °/s    +1982
 Beim Fahren gibt das Skript alle 0,25 s das gemessene Tempo aus (aus `present_velocity` zurückgerechnet).
 Am Ende hält `open_arm` die Räder an und schaltet je nach `safe_state` das Drehmoment aus.
 
-## 6. Über den Raspberry Pi oder einen ESP32-Knoten
+## 6. Arm führen, fahren und aufnehmen
+
+So entstehen Trainingsdaten für die ganze LeKiwi, wie bei LeRobot: Ein **Leader-Arm** führt den Arm der
+LeKiwi, die **Tasten** fahren die Basis, und beides landet in einem LeRobot-Dataset.
+
+1. Leader und `lekiwi` (Arm und Basis) verbinden, beide kalibriert. Bei `lekiwi` die Steuerung übernehmen.
+2. Reiter **Aufnahmen**, Teleoperation: Leader wählen, **Folgen starten**. Der Arm fährt sanft zur Stellung des
+   Leaders und folgt dann.
+3. Reiter **Datensätze**: Name und Aufgabe eingeben, **Dataset öffnen**. Die Meldung zeigt „mit Basis
+   (x.vel, y.vel, theta.vel)“.
+4. Reiter **Fahren**: Unter „Arm und Aufnahme während der Fahrt“ stehen Teleoperation und Episode. Dort
+   **Episode starten**, mit der einen Hand den Leader führen, mit der anderen fahren, **Episode speichern**.
+   So muss man den Reiter nicht wechseln (ein Wechsel hält die Basis an).
+
+Das Dataset hat dann genau die Merkmale von LeRobots `LeKiwi` (ein Test vergleicht die Namen):
+
+| Merkmal | Beobachtung (`observation.state`) | Aktion (`action`) |
+|---|---|---|
+| `arm_shoulder_pan.pos` … `arm_gripper.pos` | Stellung des Arms in Grad bzw. Prozent | Stellung des Leaders |
+| `x.vel`, `y.vel` (m/s), `theta.vel` (°/s) | aus dem gemessenen Radtempo zurückgerechnet (Abschnitt 3) | Fahrbefehl, 0 wenn keine Taste gedrückt ist |
+
+`robot_type` ist `lekiwi`, Kamerabilder kommen wie in Kapitel 05 dazu. Mit `lekiwi_base` entsteht ein
+Dataset nur mit der Basis, mit `lekiwi_arm` eines nur mit dem Arm. Ein vorhandenes Dataset lässt sich nur
+mit denselben Merkmalen weiterschreiben: Ein Arm-Dataset und eines mit Basis brauchen verschiedene Namen.
+
+Damit die Beobachtung stimmt, liest die Web-App bei Geräten mit Rädern in **jeder** Runde (30 Hz) auch
+`present_velocity` der drei Räder, nicht nur jede zehnte wie die übrigen Messwerte.
+
+!!! note "Kameras am Pi"
+    In Betriebsart B (Laptop steuert über den Pi, Kapitel 06) gehen bisher nur die Servodaten über das Netz,
+    keine Kamerabilder. Datasets mit den Kameras der LeKiwi entstehen deshalb in Betriebsart A, also in der
+    Web-App auf dem Pi.
+
+## 7. Über den Raspberry Pi oder einen ESP32-Knoten
 
 Das Fahren läuft über `Arm`, also mit jedem Backend gleich:
 
@@ -174,7 +208,7 @@ Das Fahren läuft über `Arm`, also mit jedem Backend gleich:
 - **ESP32-Knoten** (Kapitel 07, Gerät `esp_kiwi`): Die Radtempi gehen in die Sollwerttabelle des Knotens.
   Dessen Firmware stoppt die Räder nach 300 ms ohne Befehl.
 
-## 7. Unterschied zu LeRobot
+## 8. Unterschied zu LeRobot
 
 | | LeRobot (`lekiwi_host`, `lekiwi_client`) | so101-lab |
 |---|---|---|
@@ -183,11 +217,9 @@ Das Fahren läuft über `Arm`, also mit jedem Backend gleich:
 | Verbinden | `configure()`: Betriebsarten und Regelwerte ins EEPROM, **Drehmoment an für alle neun** | nichts schreiben, nur die Räder bekommen beim Fahren Drehmoment |
 | Wenn die Befehle ausbleiben | Host: Räder stopp nach 500 ms | Web-App: 300 ms Totmann, dazu Watchdog |
 | Netz | ZMQ, Ports 5555/5556 | Web-App (HTTP/WebSocket), Port 8000 |
+| Dataset | Arm `.pos`, dazu `x.vel`, `y.vel`, `theta.vel` | gleiche Merkmale und Reihenfolge, nur lokal |
 
-Die Datensätze von LeRobot speichern bei der LeKiwi zusätzlich `x.vel`, `y.vel` und `theta.vel`. Das kommt
-in so101-lab im nächsten Schritt (Phase 9b), ebenso Leader-Arm und Fahren gleichzeitig.
-
-## 8. Fehlersuche
+## 9. Fehlersuche
 
 | Beobachtung | Ursache und Abhilfe |
 |---|---|

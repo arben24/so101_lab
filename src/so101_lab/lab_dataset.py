@@ -9,10 +9,15 @@ Worten (`task`). Gespeichert wird als Parquet-Tabellen und Videos unter
 Werte wie bei LeRobot (`SOFollower` mit `use_degrees=True`): Gelenke in Grad, Greifer in
 Prozent, Schlüssel `<gelenk>.pos`. Dafür braucht es eine Kalibrierung.
 
+LeKiwi mit Basis (`base=True`): zusätzlich `x.vel`, `y.vel` (m/s) und `theta.vel` (Grad/s), wie
+LeRobots `LeKiwi`. Beobachtung = aus dem gemessenen Radtempo zurückgerechnet, Aktion = der
+Fahrbefehl (0, wenn niemand fährt).
+
 Woher die **Aktion** kommt:
 - Teleoperation: die Stellung des Leaders (in Grad mit dessen Kalibrierung), wie bei `lerobot-record`.
 - Abspielen einer Aufnahme: das Ziel, das gerade an den Arm geht.
 - Von Hand geführt: die Beobachtung selbst (der Arm „will“ dorthin, wo er ist).
+- Basis: der Fahrbefehl aus dem Reiter „Fahren“.
 
 Die Aufnahme läuft in einem eigenen Thread mit fester Rate (`fps`). Sie liest nur die Werte,
 die die Zustandsabfrage zuletzt gelesen hat, und das neueste Kamerabild. Sie greift selbst nie
@@ -33,6 +38,7 @@ from pathlib import Path
 from typing import Any
 
 from .cameras import LabCamera
+from .kinematics import BODY_KEYS
 from .paths import project_root
 
 logger = logging.getLogger(__name__)
@@ -85,6 +91,7 @@ class LabDataset:
         fps: int,
         robot_type: str,
         task: str,
+        base: bool = False,
     ):
         from lerobot.datasets.lerobot_dataset import LeRobotDataset
         from lerobot.utils.feature_utils import combine_feature_dicts, hw_to_dataset_features
@@ -97,11 +104,15 @@ class LabDataset:
         if not 1 <= fps <= 60:
             raise DatasetError("fps muss zwischen 1 und 60 liegen.")
         self.joints = list(joints)
+        self.base_keys = list(BODY_KEYS) if base else []  # x.vel, y.vel, theta.vel
+        if not self.joints and not self.base_keys:
+            raise DatasetError("Nichts aufzunehmen: Das Gerät hat weder Gelenke noch eine Basis.")
         self.cameras = dict(cameras)
         self.fps = fps
         self.task = task.strip()
         self.path = dataset_path(name)
-        motors = {f"{j}.pos": float for j in self.joints}
+        # Reihenfolge wie LeRobot: erst die Gelenke, dann die Basis
+        motors = {**{f"{j}.pos": float for j in self.joints}, **dict.fromkeys(self.base_keys, float)}
         shapes = {}
         for cam_name, camera in self.cameras.items():
             frame = camera.latest(max_age_s=5.0)
@@ -151,6 +162,15 @@ class LabDataset:
             if key not in old:
                 raise DatasetError(
                     f"Das Dataset '{self.name}' hat kein Merkmal '{key}'. Anderen Namen wählen."
+                )
+            if old[key][2] != new[2] and isinstance(new[2], list) and isinstance(old[key][2], list):
+                missing = [n for n in new[2] if n not in old[key][2]]
+                surplus = [n for n in old[key][2] if n not in new[2]]
+                raise DatasetError(
+                    f"'{key}' passt nicht zum vorhandenen Dataset '{self.name}'"
+                    + (f": dort fehlt {', '.join(missing)}" if missing else "")
+                    + (f": dort zusätzlich {', '.join(surplus)}" if surplus else "")
+                    + ". Anderes Gerät oder ohne Basis? Neuen Namen wählen."
                 )
             if old[key][0] != new[0] or old[key][1] != new[1]:
                 raise DatasetError(
@@ -204,6 +224,9 @@ class LabDataset:
                     obs, act = values
                     obs_values = {f"{j}.pos": float(obs[j]) for j in self.joints}
                     act_values = {f"{j}.pos": float(act[j]) for j in self.joints}
+                    for key in self.base_keys:
+                        obs_values[key] = float(obs[key])
+                        act_values[key] = float(act[key])
                     frame = {
                         **build_dataset_frame(self.dataset.features, {**obs_values, **images}, "observation"),
                         **build_dataset_frame(self.dataset.features, act_values, "action"),
@@ -256,6 +279,7 @@ class LabDataset:
             "task": self.task,
             "fps": self.fps,
             "cameras": list(self.cameras),
+            "base": bool(self.base_keys),
             "resumed": self.resumed,
             "saved_episodes": self.saved_episodes,
             "episode": None

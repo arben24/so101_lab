@@ -156,6 +156,8 @@ class DeviceSession:
         self.dataset: LabDataset | None = None
         self._last_targets: dict[str, int] | None = None  # letztes Ziel des Abspielers (Aktion im Dataset)
         self._drive: dict[str, Any] | None = None  # letzter Fahrbefehl (Befehl, Radtempi, Zeit)
+        self.base_present = False  # alle drei Räder antworten: Radtempo jede Runde lesen
+        self._latest_body: tuple[dict[str, float], float] | None = None  # gemessene Bewegung der Basis
 
     # ------------------------------------------------------------ Start und Ende
 
@@ -169,6 +171,7 @@ class DeviceSession:
                     self.present.append(joint.name)
         if not self.present:
             raise BackendError("Kein Servo antwortet. Servo-Netzteil an? Kabel gesteckt? Richtiger Port?")
+        self.base_present = self.arm.can_drive and all(w in self.present for w in kinematics.WHEELS)
         self.event("info", f"Verbunden ({self.arm.backend.name}{', ' + self.port if self.port else ''}).")
         if self.missing:
             self.event("warn", f"Keine Antwort von: {', '.join(self.missing)}.")
@@ -767,12 +770,15 @@ class DeviceSession:
             )
         joints = [n for n in self.present if self.arm.spec.joint(n).mode is JointMode.POSITION]
         try:
-            self.dataset = LabDataset(name, joints, self.cameras, fps, self.arm.spec.lerobot_name, task)
+            self.dataset = LabDataset(
+                name, joints, self.cameras, fps, self.arm.spec.lerobot_name, task, base=self.base_present
+            )
         except DatasetError as exc:
             raise BackendError(str(exc)) from None
         how = "weitergeschrieben" if self.dataset.resumed else "angelegt"
         cams = ", ".join(self.cameras) or "keine Kamera"
-        self.event("info", f"Dataset '{name}' {how} ({fps} fps, {cams}): {self.dataset.path}")
+        base = ", mit Basis (x.vel, y.vel, theta.vel)" if self.base_present else ""
+        self.event("info", f"Dataset '{name}' {how} ({fps} fps, {cams}{base}): {self.dataset.path}")
         return self.dataset.status()
 
     def _dataset_values(self) -> tuple[dict[str, float], dict[str, float]] | None:
@@ -804,6 +810,15 @@ class DeviceSession:
                 action = {**obs, **targets}
         if any(j not in action for j in dataset.joints):
             return None
+        if dataset.base_keys:
+            # Beobachtung: gemessen. Aktion: Fahrbefehl, 0 wenn niemand fährt (wie LeRobot ohne Taste).
+            body = self._latest_body
+            if body is None or self.clock() - body[1] > 0.2:
+                return None
+            drive = self._drive
+            command = drive["command"] if drive else dict.fromkeys(kinematics.BODY_KEYS, 0.0)
+            obs = {**obs, **body[0]}
+            action = {**action, **command}
         return obs, action
 
     def episode_start(self, client_id: str | None) -> dict[str, Any]:
@@ -820,7 +835,7 @@ class DeviceSession:
             else "Aktion = Ziel des Abspielers"
             if self.player
             else "von Hand, Aktion = Beobachtung"
-        )
+        ) + (", Basis: Aktion = Fahrbefehl" if self.dataset.base_keys else "")
         self.event("info", f"Episode {self.dataset.episode.index} läuft ({source}).")  # type: ignore[union-attr]
         return self.dataset.status()
 
@@ -951,13 +966,9 @@ class DeviceSession:
     def _drive_snapshot(self) -> dict[str, Any] | None:
         if not self.arm.can_drive:
             return None
-        measured = None
-        slow = [self._slow.get(w) for w in kinematics.WHEELS]
-        if all(s is not None and s.velocity is not None for s in slow):
-            body = kinematics.wheels_to_body(
-                dict(zip(kinematics.WHEELS, (s.velocity for s in slow), strict=True))
-            )
-            measured = {k: round(v, 3) + 0.0 for k, v in body.items()}  # + 0.0: kein „−0“
+        latest = self._latest_body
+        # + 0.0: kein „−0“ in der Anzeige
+        measured = {k: round(v, 3) + 0.0 for k, v in latest[0].items()} if latest else None
         drive = self._drive
         return {
             "command": drive["command"] if drive else dict.fromkeys(kinematics.BODY_KEYS, 0.0),
@@ -1061,6 +1072,8 @@ class DeviceSession:
             try:
                 with self.bus_lock:
                     positions = self.arm.read_positions(self.present)
+                    if self.base_present:  # für Anzeige und Dataset (x.vel, y.vel, theta.vel) jede Runde
+                        self._latest_body = (self.arm.read_body_velocity(), self.clock())
                     if self._refresh_slow or i % self.slow_every == 0:
                         self._refresh_slow = False
                         self._slow = self.arm.read_state(self.present)
