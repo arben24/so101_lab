@@ -35,12 +35,12 @@ cameras = [
   { name = "front", source = "/dev/v4l/by-id/usb-Generic_FULL_HD_1080P_Webcam_200901010001-video-index0" },
 ]
 
-# [[device]]
-# name = "leader"
-# type = "so101_leader"
-# backend = "usb"
+[[device]]
+name = "leader"
+type = "so101_leader"
+backend = "usb"
 # port = "/dev/ttyACM1"
-# calibration_id = "leader_1"
+calibration_id = "leader_1"
 
 # LeKiwi (Adapter SN 5AAF263183, 9 Servos), per USB am eigenen Rechner („kabelgebundene“
 # LeKiwi). Drei Einträge für dieselbe Hardware: es kann immer nur einer verbunden sein.

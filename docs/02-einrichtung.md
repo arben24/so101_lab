@@ -150,7 +150,7 @@ hier von Hand: Netzteil aus und an, dann `uv run so101-lab scan --port /dev/ttyA
 
 Jede Aktion (ID gesetzt, nur geprüft, Neustart-Probe), auch eine fehlgeschlagene, landet als Zeile in
 `logs/servo_ids.csv`: Zeit, Gerätetyp, Gelenk, alte und neue ID und Baudrate, Modell, Firmware, Port,
-Seriennummer des Adapters, Ergebnis. Die Datei liegt im Repo und kann mit eingecheckt werden.
+Seriennummer des Adapters, Ergebnis. Die Datei bleibt lokal: `logs/` steht in der `.gitignore`, weil sie geräte- und laborspezifisch ist.
 
 ### Prüfen, wenn alle Servos am Bus hängen
 
