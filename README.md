@@ -25,6 +25,7 @@ uv run scripts/02_read_servo.py --gelenk shoulder_pan
 uv run scripts/03_move_servo.py --gelenk wrist_flex
 ```
 
-Weitere: `04_write_param.py`, `05_set_servo_id.py`, `06_record_trajectory.py`, `07_replay_trajectory.py`.
+Weitere: `04_write_param.py`, `05_set_servo_id.py`, `06_record_trajectory.py`, `07_replay_trajectory.py`,
+`09_drive_base.py` (LeKiwi-Basis fahren, ohne Hardware mit `--device demo_kiwi`).
 
 Für Training mit GPU: `uv sync --no-group cpu --group cuda`.

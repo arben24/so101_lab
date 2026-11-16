@@ -29,7 +29,7 @@ from typing import Any
 from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .. import __version__
 from ..backends.base import BackendError
@@ -284,6 +284,13 @@ class MoveRequest(ClientRequest):
     targets: dict[str, int]  # Gelenkname → Rohwert
 
 
+class DriveRequest(ClientRequest):
+    # Koordinaten wie LeRobot: x vorwärts, y nach links (m/s), theta gegen den Uhrzeigersinn (Grad/s)
+    x: float = Field(0.0, ge=-1.0, le=1.0)
+    y: float = Field(0.0, ge=-1.0, le=1.0)
+    theta: float = Field(0.0, ge=-360.0, le=360.0)
+
+
 class RegisterWriteRequest(ClientRequest):
     joint: str
     register_name: str
@@ -463,6 +470,11 @@ def create_app(server: LabServer, docs_dir: Path | None = None) -> FastAPI:
     def move(name: str, body: MoveRequest) -> dict[str, Any]:
         sent = server.session(name).move(server.require_client(body.client_id), body.targets)
         return {"sent": sent}
+
+    @app.post("/api/devices/{name}/drive", dependencies=[Depends(auth)])
+    def drive(name: str, body: DriveRequest) -> dict[str, Any]:
+        client = server.require_client(body.client_id)
+        return server.session(name).drive(client, body.x, body.y, body.theta)
 
     # --- Register-Explorer ----------------------------------------------------------
 

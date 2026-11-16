@@ -56,6 +56,7 @@
     <nav class="tabs" id="tabs">
       <a href="#status">Status</a>
       <a href="#servo">Einzelservo</a>
+      <a href="#fahren">Fahren</a>
       <a href="#register">Register</a>
       <a href="#kalibrierung">Kalibrierung</a>
       <a href="#kalibrierdateien">Kalibrierdateien</a>
@@ -102,6 +103,50 @@
       </div>
       <p>Ziel gesendet: <b id="servo-goal">–</b> · Istposition: <b id="servo-pos">–</b></p>
       <p class="hint" id="servo-hint"></p>
+    </section>
+
+    <!-- ============================================================ Fahren -->
+    <section class="card tab" id="tab-fahren">
+      <h2>Fahren (LeKiwi-Basis)</h2>
+      <div class="banner warn" id="drive-nobase" hidden>
+        Dieses Gerät hat keine Räder. Fahren geht mit den Gerätetypen <code>lekiwi</code> oder <code>lekiwi_base</code>
+        (zum Üben ohne Hardware: Gerät <code>demo_kiwi</code>).
+      </div>
+      <p class="hint">
+        <b>Erst aufbocken</b> (Räder frei in der Luft) und prüfen, ob die Richtungen stimmen, dann auf den Boden.
+        Gefahren wird nur, solange eine Taste oder Schaltfläche gedrückt ist: Der Browser wiederholt den Befehl alle
+        100 ms, bleibt er länger als <span id="drive-timeout">300</span> ms aus, halten die Räder an. Beim ersten
+        Befehl bekommen die Räder Drehmoment (nur die Räder). Esc = Not-Aus.
+      </p>
+      <div class="drive-grid">
+        <div class="drive-pad" id="drive-pad">
+          <button data-key="z" title="drehen nach links (Z)">⟲<small>Z</small></button>
+          <button data-key="w" title="vorwärts (W)">↑<small>W</small></button>
+          <button data-key="x" title="drehen nach rechts (X)">⟳<small>X</small></button>
+          <button data-key="a" title="nach links (A)">←<small>A</small></button>
+          <button id="drive-stop" class="secondary" title="anhalten (Leertaste)">■<small>Leer</small></button>
+          <button data-key="d" title="nach rechts (D)">→<small>D</small></button>
+          <span></span>
+          <button data-key="s" title="rückwärts (S)">↓<small>S</small></button>
+          <span></span>
+        </div>
+        <div>
+          <div class="row">
+            <label>Tempostufe (R schneller, F langsamer) <select id="drive-level"></select></label>
+          </div>
+          <h2 class="sub">Befehl</h2>
+          <div class="gauges" id="drive-command"></div>
+          <h2 class="sub">Radtempo gesendet <small>(Schritt/s, 4096 = eine Umdrehung)</small></h2>
+          <div class="gauges" id="drive-wheels"></div>
+          <h2 class="sub">Gemessen <small>(aus present_velocity der Räder zurückgerechnet)</small></h2>
+          <div class="gauges" id="drive-measured"></div>
+        </div>
+      </div>
+      <p class="hint">
+        Tasten wie bei LeRobot: W/S vor und zurück, A/D seitwärts, Z/X drehen, R/F Tempostufe, Leertaste anhalten.
+        Sie wirken nur, wenn dieser Reiter offen ist und du steuerst. Koordinaten: x vorwärts, y nach links, Drehung
+        gegen den Uhrzeigersinn. Die Umrechnung auf die Räder erklärt <a href="docs/08-lekiwi.html" target="_blank">Kapitel 08</a>.
+      </p>
     </section>
 
     <!-- ============================================================ Register -->

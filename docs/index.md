@@ -38,13 +38,13 @@ Schritt 5 fragt vor der Bewegung nach einer Bestätigung. Das Gelenk fährt nur 
 
 | Was | Wo | Wofür |
 |---|---|---|
-| Lernskripte | `scripts/01…07` | kurze, kommentierte Programme, jedes für sich lauffähig |
+| Lernskripte | `scripts/01…07`, `09` | kurze, kommentierte Programme, jedes für sich lauffähig |
 | Befehl `so101-lab` | `doctor`, `ports`, `scan`, `state`, `web` | Umgebung prüfen, Servos suchen, Zustand lesen, Web-App |
 | Konfiguration | `config/arms.toml` | welche Geräte es gibt, Port, Kalibrierung, Bewegungsgrenzen |
 | Kalibrierdateien | alle Kalibrierdateien ansehen, löschen (mit Backup), wiederherstellen, importieren; Abgleich mit den Servos |
 | Aufnahmen | `recordings/` | Bewegungen als CSV und JSON (nicht im Git) |
 | Kalibrierung | `calibration/` | Kalibrierdateien je Arm im LeRobot-Format |
-| ESP32-Firmware | `firmware/esp32/` | Referenz für die Funkanbindung (Kapitel 07, folgt) |
+| ESP32-Firmware | `firmware/esp32/` | Referenz für die Funkanbindung (Kapitel 07) |
 
 ## Die Web-App
 
@@ -96,6 +96,7 @@ LeRobot-Werkzeug dasselbe „in fertig“ macht.
 | `05_set_servo_id.py` | neuem Servo ID und 1 Mbit/s geben, prüfen, protokollieren | **EEPROM, dauerhaft** |
 | `06_record_trajectory.py` | Bewegung von Hand führen und aufzeichnen | Torque aus |
 | `07_replay_trajectory.py` | Aufnahme sanft anfahren und abspielen | Torque und Ziele (RAM), danach aus |
+| `09_drive_base.py` | LeKiwi-Basis: Fahrbefehl in Radtempi umrechnen und kurz fahren | Torque und Radtempo (RAM), danach aus |
 
 ## So liest du diese Doku
 

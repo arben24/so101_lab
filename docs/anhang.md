@@ -40,6 +40,7 @@ Eine automatisch erzeugte, ausprobierbare Fassung (OpenAPI) liefert die laufende
 | `POST /api/devices/{name}/torque` | Drehmoment, `{"client_id", "enabled", "joints"}` (`joints` leer = alle) |
 | `POST /api/devices/{name}/motion` | Tempo und Beschleunigung, `{"client_id", "velocity", "acceleration"}` |
 | `POST /api/devices/{name}/move` | Zielpositionen, `{"client_id", "targets": {gelenk: roh}}`, begrenzt wie `Arm.move_to` |
+| `POST /api/devices/{name}/drive` | LeKiwi-Basis fahren, `{"client_id", "x", "y", "theta"}` in m/s bzw. Grad/s (Kapitel 08). Alle 100 ms wiederholen, sonst halten die Räder nach 300 ms an. Alles 0 = anhalten. Antwort: gesendete Radtempi |
 
 ## Register und Kalibrierung
 

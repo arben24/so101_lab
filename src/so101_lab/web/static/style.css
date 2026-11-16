@@ -215,3 +215,12 @@ label.wide input { width: 100%; }
 #cam-table td:nth-child(-n+2), #cam-table th:nth-child(-n+2), #cam-table td:nth-child(4), #cam-table th:nth-child(4) { text-align: left; }
 #ds-table td:nth-child(2), #ds-table td:nth-child(7), #ds-table th:nth-child(2), #ds-table th:nth-child(7) { text-align: left; }
 #ds-table button { padding: 2px 8px; margin-right: 4px; }
+
+/* ------------------------------------------------------------ Fahren */
+.drive-grid { display: grid; grid-template-columns: max-content 1fr; gap: 24px; align-items: start; margin-top: 12px; }
+.drive-pad { display: grid; grid-template-columns: repeat(3, 72px); grid-auto-rows: 72px; gap: 6px; }
+.drive-pad button { font-size: 26px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  touch-action: none; user-select: none; -webkit-user-select: none; }
+.drive-pad button small { font-size: 11px; opacity: .7; }
+.drive-pad button.pressed { background: var(--warn); }
+@media (max-width: 700px) { .drive-grid { grid-template-columns: 1fr; } }

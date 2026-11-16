@@ -88,3 +88,10 @@ type = "so101_follower"
 backend = "mock"
 calibration_id = "mock"
 cameras = [{ name = "sim", source = "test" }]  # Testbild, keine Hardware
+
+# Simulierter LeKiwi (Arm und Basis), zum Üben des Fahrens ohne Hardware (Kapitel 08)
+[[device]]
+name = "demo_kiwi"
+type = "lekiwi"
+backend = "mock"
+calibration_id = "demo_kiwi"

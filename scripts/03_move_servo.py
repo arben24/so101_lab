@@ -70,7 +70,7 @@ def main(argv: list[str] | None = None) -> int:
     with open_arm(args.device, port=port, config_path=args.config) as arm:
         joint = arm.spec.joint(args.gelenk)
         if joint.mode is not JointMode.POSITION:
-            raise BackendError(f"'{joint.name}' ist ein Rad. Für Räder gibt es Skript 09 (kommt mit LeKiwi).")
+            raise BackendError(f"'{joint.name}' ist ein Rad. Für Räder gibt es Skript 09 (09_drive_base.py).")
         delta = abs(args.delta)
         step_limit = arm.cfg.max_relative_target
         if step_limit is not None and delta > step_limit:

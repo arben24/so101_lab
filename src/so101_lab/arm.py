@@ -17,6 +17,7 @@ import logging
 from collections.abc import Iterable
 from pathlib import Path
 
+from . import kinematics
 from .backends.base import ArmBackend, BackendError, ServoNotRespondingError, ServoState
 from .calibration import Calibration, raw_to_joint
 from .config import DeviceConfig
@@ -153,6 +154,11 @@ class Arm:
         self.backend.set_torque(ids.values(), True)
 
     def disable_torque(self, names: Iterable[str] | None = None) -> None:
+        """Drehmoment aus. Räder bekommen vorher Tempo 0: Sonst bliebe der Fahrbefehl im Register
+        stehen, und das Rad liefe beim nächsten Einschalten (auch mit einem anderen Werkzeug) los."""
+        wheel_ids = self._ids(names, JointMode.VELOCITY)
+        if wheel_ids:
+            self.backend.sync_write("goal_velocity", dict.fromkeys(wheel_ids.values(), 0))
         self.backend.set_torque(self._ids(names).values(), False)
 
     def move_to(self, targets: dict[str, int], *, limit_step: bool = True) -> dict[str, int]:
@@ -196,6 +202,38 @@ class Arm:
         wheels = [j.motor_id for j in self.spec.wheels]
         if wheels:
             self.backend.sync_write("goal_velocity", dict.fromkeys(wheels, 0))
+
+    # ------------------------------------------------------------ Fahren (LeKiwi-Basis)
+
+    @property
+    def can_drive(self) -> bool:
+        """Hat das Gerät die drei Räder der LeKiwi-Basis?"""
+        return {j.name for j in self.spec.wheels} >= set(kinematics.WHEELS)
+
+    def _require_base(self) -> None:
+        if not self.can_drive:
+            raise BackendError(
+                f"{self.spec.type} hat keine LeKiwi-Basis (Räder {', '.join(kinematics.WHEELS)})."
+            )
+
+    def drive(self, x: float, y: float, theta: float) -> dict[str, int]:
+        """Basis fahren: x, y in m/s, theta in Grad/s (Koordinaten wie LeRobot, siehe kinematics.py).
+
+        Rechnet den Fahrbefehl in Radtempi um. Ist ein Rad schneller als `max_wheel_velocity`
+        aus arms.toml, werden alle drei im gleichen Verhältnis verkleinert (Richtung bleibt).
+        Die Räder müssen im Geschwindigkeitsmodus sein und Drehmoment haben.
+        Liefert die gesendeten Rohwerte je Rad.
+        """
+        self._require_base()
+        wheels = kinematics.body_to_wheels(x, y, theta, max_raw=self.cfg.max_wheel_velocity)
+        return self.set_wheel_velocities(wheels)
+
+    def read_body_velocity(self) -> dict[str, float]:
+        """Gemessene Bewegung der Basis aus `present_velocity` der Räder (x.vel, y.vel, theta.vel)."""
+        self._require_base()
+        ids = self._ids(kinematics.WHEELS)
+        raw = self.backend.sync_read(list(ids.values()), "present_velocity")
+        return kinematics.wheels_to_body({name: raw[i] for name, i in ids.items()})
 
     # ------------------------------------------------------------ Sicher beenden
 

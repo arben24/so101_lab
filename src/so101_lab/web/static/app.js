@@ -238,6 +238,7 @@ function render() {
   renderJoints(snap);
   renderEvents(snap);
   renderServo(snap, mine);
+  renderDrive(snap, mine);
   renderRegisterControls(snap, mine);
   renderCalibration(snap, mine);
   renderMotion(snap, mine);
@@ -383,6 +384,7 @@ async function main() {
   bind();
   bindTabs();
   bindServo();
+  bindDrive();
   bindRegisters();
   bindCalibration();
   bindSetup();
@@ -403,7 +405,7 @@ async function main() {
 
 // ------------------------------------------------------------------ Reiter
 
-const TABS = ["status", "servo", "register", "kalibrierung", "kalibrierdateien", "aufnahmen", "datensaetze", "einrichtung"];
+const TABS = ["status", "servo", "fahren", "register", "kalibrierung", "kalibrierdateien", "aufnahmen", "datensaetze", "einrichtung"];
 
 function showTab() {
   const tab = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "status";
@@ -539,6 +541,159 @@ function bindServo() {
     action(() =>
       api("POST", deviceUrl("torque"), { client_id: app.clientId, enabled: false, joints: [$("servo-joint").value] }),
     );
+}
+
+// ------------------------------------------------------------------ Fahren (LeKiwi-Basis)
+//
+// Gefahren wird nur, solange Tasten gehalten werden. Der Befehl geht alle 100 ms an den Server.
+// Kommt dort 300 ms lang keiner an, hält der Server die Räder an (Totmann). Beim Loslassen
+// schickt der Browser einmal „alles 0“. Tasten wie im Tastatur-Client von LeRobot.
+
+const DRIVE_MS = 100;
+const DRIVE_KEYS = { w: [1, 0, 0], s: [-1, 0, 0], a: [0, 1, 0], d: [0, -1, 0], z: [0, 0, 1], x: [0, 0, -1] };
+const WHEEL_LABELS = { base_left_wheel: "links", base_back_wheel: "hinten", base_right_wheel: "rechts" };
+const drive = { held: new Set(), level: 0, inFlight: false, sentMoving: false, device: null };
+
+function driveSnap() {
+  const snap = currentSnap();
+  const mine = Boolean(snap && snap.controller && snap.controller === app.clientId);
+  return snap?.drive && mine ? snap : null;
+}
+
+function driveTabOpen() {
+  return location.hash === "#fahren";
+}
+
+function driveCommand(snap) {
+  const level = snap.drive.levels[drive.level];
+  const cmd = { x: 0, y: 0, theta: 0 };
+  for (const key of drive.held) {
+    const [x, y, theta] = DRIVE_KEYS[key];
+    cmd.x += x * level.xy;
+    cmd.y += y * level.xy;
+    cmd.theta += theta * level.theta;
+  }
+  return cmd;
+}
+
+async function driveSend() {
+  const snap = driveSnap();
+  if (!snap) drive.held.clear(); // kein Steuerrecht oder kein Gerät mit Rädern
+  const cmd = snap ? driveCommand(snap) : { x: 0, y: 0, theta: 0 };
+  const moving = Boolean(cmd.x || cmd.y || cmd.theta);
+  if ((!moving && !drive.sentMoving) || drive.inFlight) return;
+  // „Anhalten“ geht an das Gerät, das zuletzt fuhr, auch wenn oben inzwischen ein anderes gewählt ist
+  const device = moving ? $("device-select").value : drive.device;
+  drive.inFlight = true;
+  try {
+    await api("POST", `/api/devices/${encodeURIComponent(device)}/drive`, { client_id: app.clientId, ...cmd });
+    drive.device = device;
+    drive.sentMoving = moving;
+  } catch (err) {
+    drive.held.clear();
+    drive.sentMoving = false; // der Server hält die Räder ohnehin nach der Totmannzeit an
+    if (moving) toast(err.message);
+  } finally {
+    drive.inFlight = false;
+  }
+}
+
+function driveStop() {
+  drive.held.clear();
+  if (drive.sentMoving) driveSend();
+  renderDrive(currentSnap(), Boolean(driveSnap()));
+}
+
+function setGauges(el, items) {
+  el.innerHTML = "";
+  for (const [label, value] of items) {
+    const div = document.createElement("div");
+    div.className = "gauge";
+    const span = document.createElement("span");
+    span.textContent = label;
+    const b = document.createElement("b");
+    b.textContent = value;
+    div.append(span, b);
+    el.append(div);
+  }
+}
+
+function renderDrive(snap, mine) {
+  const d = snap?.drive;
+  $("drive-nobase").hidden = !snap || Boolean(d);
+  for (const b of $("drive-pad").querySelectorAll("button")) {
+    b.disabled = !d || !mine;
+    b.classList.toggle("pressed", drive.held.has(b.dataset.key));
+  }
+  $("drive-level").disabled = !d;
+  if (!d) {
+    for (const id of ["drive-command", "drive-wheels", "drive-measured"]) $(id).innerHTML = "";
+    return;
+  }
+  const select = $("drive-level");
+  if (select.options.length !== d.levels.length) {
+    select.innerHTML = "";
+    const names = ["langsam", "mittel", "schnell"];
+    d.levels.forEach((l, i) => select.add(new Option(`${i + 1} ${names[i] ?? ""} (${l.xy} m/s, ${l.theta} °/s)`, i)));
+  }
+  select.value = drive.level;
+  $("drive-timeout").textContent = d.timeout_ms;
+  const c = d.command;
+  setGauges($("drive-command"), [
+    ["x m/s (vor)", fmt(c["x.vel"], 2)],
+    ["y m/s (links)", fmt(c["y.vel"], 2)],
+    ["Drehung °/s", fmt(c["theta.vel"])],
+  ]);
+  setGauges(
+    $("drive-wheels"),
+    Object.entries(d.wheels).map(([name, raw]) => [`${WHEEL_LABELS[name] ?? name} (≤ ${d.max_wheel_velocity})`, fmt(raw)]),
+  );
+  const m = d.measured;
+  setGauges($("drive-measured"), [
+    ["x m/s", m ? fmt(m["x.vel"], 2) : "–"],
+    ["y m/s", m ? fmt(m["y.vel"], 2) : "–"],
+    ["Drehung °/s", m ? fmt(m["theta.vel"]) : "–"],
+  ]);
+}
+
+function bindDrive() {
+  setInterval(driveSend, DRIVE_MS);
+  for (const b of $("drive-pad").querySelectorAll("button[data-key]")) {
+    const key = b.dataset.key;
+    b.addEventListener("pointerdown", (e) => {
+      b.setPointerCapture(e.pointerId);
+      drive.held.add(key);
+      driveSend();
+    });
+    for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
+      b.addEventListener(type, () => drive.held.delete(key));
+    }
+  }
+  $("drive-stop").onclick = driveStop;
+  $("drive-level").onchange = () => (drive.level = Number($("drive-level").value));
+  document.addEventListener("keydown", (e) => {
+    if (!driveTabOpen() || e.ctrlKey || e.altKey || e.metaKey) return;
+    if (e.target.closest("input, select, textarea") || document.querySelector("dialog[open]")) return;
+    const key = e.key.toLowerCase();
+    if (key in DRIVE_KEYS) {
+      e.preventDefault();
+      if (driveSnap()) drive.held.add(key);
+      if (!e.repeat) driveSend();
+    } else if (key === " ") {
+      e.preventDefault();
+      driveStop();
+    } else if ((key === "r" || key === "f") && !e.repeat) {
+      const levels = currentSnap()?.drive?.levels.length ?? 3;
+      drive.level = Math.max(0, Math.min(levels - 1, drive.level + (key === "r" ? 1 : -1)));
+      render();
+    }
+  });
+  document.addEventListener("keyup", (e) => drive.held.delete(e.key.toLowerCase()));
+  // Fokus weg (anderes Fenster, Tab gewechselt): nichts mehr gedrückt halten
+  window.addEventListener("blur", driveStop);
+  document.addEventListener("visibilitychange", () => document.hidden && driveStop());
+  window.addEventListener("hashchange", () => !driveTabOpen() && driveStop());
+  $("device-select").addEventListener("change", driveStop);
 }
 
 // ------------------------------------------------------------------ Register-Explorer

@@ -24,6 +24,11 @@ Hier liegen die Regeln für den Betrieb über den Browser:
   bis dahin gespeichert, Abspielen und Teleoperation hören auf.
 - **Kameras** aus arms.toml werden beim Verbinden geöffnet (eigener Lese-Thread je Kamera).
   Fehlt eine, verbindet das Gerät trotzdem, mit Warnung.
+- **Fahren** (LeKiwi-Basis, `kinematics.py`): Der Browser schickt den Fahrbefehl (x, y, Drehung)
+  laufend, solange eine Taste gedrückt ist. Bleibt der nächste Befehl länger als
+  `DRIVE_TIMEOUT_S` aus (Taste losgelassen, aber das Loslassen ging verloren; Tab verliert den
+  Fokus), hält die Abfrage die Räder an. Das ist unabhängig vom Watchdog: Der prüft nur, ob der
+  Browser noch lebt, nicht, ob noch jemand fahren will.
 - **LeRobot-Dataset** (`lab_dataset.py`): Episoden laufen in einem eigenen Thread mit fester
   Rate und lesen nur die zuletzt abgefragten Werte und das neueste Kamerabild. Verliert der
   Client das Steuerrecht, wird die laufende Episode verworfen (unvollständige Vorführungen
@@ -41,6 +46,7 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from typing import Any, TypeVar
 
+from .. import kinematics
 from .. import registers as regs
 from ..arm import Arm
 from ..backends.base import BackendError, ServoState
@@ -82,6 +88,9 @@ VIA_PANEL = {
 T = TypeVar("T")
 
 UNITS = {NormMode.DEGREES: "°", NormMode.RANGE_0_100: "%", NormMode.RANGE_M100_100: "%"}
+
+# Totmannzeit für Fahrbefehle. Der Browser wiederholt den Befehl alle 100 ms.
+DRIVE_TIMEOUT_S = 0.3
 
 
 class ControlError(BackendError):
@@ -146,6 +155,7 @@ class DeviceSession:
         self.cameras: dict[str, LabCamera] = {}
         self.dataset: LabDataset | None = None
         self._last_targets: dict[str, int] | None = None  # letztes Ziel des Abspielers (Aktion im Dataset)
+        self._drive: dict[str, Any] | None = None  # letzter Fahrbefehl (Befehl, Radtempi, Zeit)
 
     # ------------------------------------------------------------ Start und Ende
 
@@ -212,6 +222,7 @@ class DeviceSession:
             self._last_heartbeat = self.clock()
         if previous not in (None, client_id):
             # Beim Übernehmen nichts weiterfahren lassen, was der vorige Client befohlen hat.
+            self._drive = None
             self._run_safely(lambda arm: arm.stop_wheels(), "Räder stoppen")
             self.event("warn", "Steuerrecht wurde von einem anderen Client übernommen.")
         elif previous is None:
@@ -284,6 +295,7 @@ class DeviceSession:
         else:
             self.require_control(client_id)  # Ausschalten geht immer, auch beim Kalibrieren
             self._stop_following("Drehmoment aus")
+            self._drive = None
         names = [self.joint(n).name for n in joints] if joints else list(self.present)
         which = "alle Gelenke" if not joints else ", ".join(names)
         if enabled:
@@ -857,6 +869,105 @@ class DeviceSession:
         except Exception as exc:
             self.event("error", f"Dataset '{dataset.name}' abschließen fehlgeschlagen: {exc}")
 
+    # ------------------------------------------------------------ Fahren (LeKiwi-Basis)
+
+    def drive(self, client_id: str | None, x: float, y: float, theta: float) -> dict[str, Any]:
+        """Fahrbefehl: x, y in m/s, theta in Grad/s. Muss alle 100 ms wiederholt werden.
+
+        Fährt die Basis aus dem Stand los, wird vorher geprüft, ob alle Räder im
+        Geschwindigkeitsmodus sind, und ihr Drehmoment wird bei Bedarf eingeschaltet (nur die
+        Räder, mit Tempo 0). Arm, Abspielen und Teleoperation bleiben davon unberührt.
+        """
+        self.require_control(client_id)
+        run = self.calibration_run
+        if run is not None and run.stage in (Stage.MIDDLE, Stage.RANGE):
+            raise ControlError("Die Kalibrierung läuft. Erst speichern oder abbrechen.")
+        if not self.arm.can_drive:
+            raise BackendError(
+                f"{self.arm.spec.type} hat keine Räder. Fahren geht mit lekiwi oder lekiwi_base."
+            )
+        missing = [w for w in kinematics.WHEELS if w not in self.present]
+        if missing:
+            raise BackendError(f"Rad antwortet nicht: {', '.join(missing)}.")
+        moving = any((x, y, theta))
+        with self.bus_lock:
+            try:
+                if moving and not self._driving():
+                    self._prepare_wheels()
+                sent = self.arm.drive(x, y, theta) if moving else self._stop_wheels()
+            except Exception:
+                self._drive = None
+                self._run_safely(lambda arm: arm.stop_wheels(), "Räder stoppen")
+                raise
+            self._drive = {
+                "command": dict(zip(kinematics.BODY_KEYS, (x, y, theta), strict=True)),
+                "wheels": sent,
+                "time": self.clock(),
+            }
+        self._refresh_slow = True
+        return {"wheels": sent}
+
+    def _driving(self) -> bool:
+        drive = self._drive
+        return drive is not None and any(drive["wheels"].values())
+
+    def _stop_wheels(self) -> dict[str, int]:
+        self.arm.stop_wheels()
+        return dict.fromkeys(kinematics.WHEELS, 0)
+
+    def _prepare_wheels(self) -> None:
+        """Betriebsart prüfen und Drehmoment der Räder einschalten (unter bus_lock aufrufen)."""
+        ids = {name: self.arm.spec.joint(name).motor_id for name in kinematics.WHEELS}
+        modes = self.arm.backend.sync_read(list(ids.values()), "operating_mode")
+        wrong = [f"{n} (ID {i}): {modes[i]}" for n, i in ids.items() if modes[i] != 1]
+        if wrong:
+            raise BackendError(
+                "Räder nicht im Geschwindigkeitsmodus (operating_mode 1): "
+                + ", ".join(wrong)
+                + ". Im Reiter „Register“ (Expertenmodus) operating_mode = 1 schreiben, siehe Kapitel 08."
+            )
+        torque = self.arm.backend.sync_read(list(ids.values()), "torque_enable")
+        if not all(torque[i] for i in ids.values()):
+            if not self.arm.motion_ready:
+                self.arm.configure_motion(**self._motion_kwargs())
+            self.arm.enable_torque(list(ids))  # setzt vorher Tempo 0
+            self.event("info", "Räder: Drehmoment an (Fahrbefehl).")
+
+    def _drive_tick(self, now: float) -> None:
+        """Totmann: Kommt kein neuer Fahrbefehl, halten die Räder an."""
+        drive = self._drive
+        if drive is None or not any(drive["wheels"].values()):
+            return
+        silent = now - drive["time"]
+        if silent <= DRIVE_TIMEOUT_S:
+            return
+        with self.bus_lock:
+            if self._drive is not drive:  # inzwischen kam ein neuer Befehl
+                return
+            self._drive = None
+            self._run_safely(lambda arm: arm.stop_wheels(), "Räder stoppen")
+        self.event("warn", f"Kein Fahrbefehl seit {silent * 1000:.0f} ms: Räder angehalten.")
+
+    def _drive_snapshot(self) -> dict[str, Any] | None:
+        if not self.arm.can_drive:
+            return None
+        measured = None
+        slow = [self._slow.get(w) for w in kinematics.WHEELS]
+        if all(s is not None and s.velocity is not None for s in slow):
+            body = kinematics.wheels_to_body(
+                dict(zip(kinematics.WHEELS, (s.velocity for s in slow), strict=True))
+            )
+            measured = {k: round(v, 3) + 0.0 for k, v in body.items()}  # + 0.0: kein „−0“
+        drive = self._drive
+        return {
+            "command": drive["command"] if drive else dict.fromkeys(kinematics.BODY_KEYS, 0.0),
+            "wheels": drive["wheels"] if drive else dict.fromkeys(kinematics.WHEELS, 0),
+            "measured": measured,
+            "levels": list(kinematics.SPEED_LEVELS),
+            "max_wheel_velocity": self.arm.cfg.max_wheel_velocity,
+            "timeout_ms": round(DRIVE_TIMEOUT_S * 1000),
+        }
+
     # ------------------------------------------------------------ Bewegungsabläufe beenden
 
     def _stop_following(self, reason: str, hold: bool = False) -> None:
@@ -914,6 +1025,7 @@ class DeviceSession:
     def emergency_stop(self) -> None:
         with self._control_lock:
             self.controller = None
+        self._drive = None
         self._stop_following("Not-Aus")
         with self.bus_lock:
             self.arm.emergency_stop()  # meldet Fehler je Motor selbst ins Log, wirft nicht
@@ -925,6 +1037,7 @@ class DeviceSession:
         self._discard_episode("Not-Aus")
 
     def _make_safe(self) -> None:
+        self._drive = None
         self._abort_calibration("Steuerrecht verloren")
         self._end_motion("Steuerrecht verloren")
         self._run_safely(lambda arm: arm.safe_shutdown(), "Sicherer Zustand")
@@ -944,6 +1057,7 @@ class DeviceSession:
         i = 0
         while not self._stop.is_set():
             self.check_watchdog()
+            self._drive_tick(self.clock())  # auch wenn das Lesen gerade scheitert
             try:
                 with self.bus_lock:
                     positions = self.arm.read_positions(self.present)
@@ -1035,5 +1149,6 @@ class DeviceSession:
             "cameras": [c.status() for c in self.cameras.values()],
             "camera_config": [s.name for s in self.arm.cfg.cameras],
             "dataset": self.dataset.status() if self.dataset else None,
+            "drive": self._drive_snapshot(),
             **self._snapshot,
         }
